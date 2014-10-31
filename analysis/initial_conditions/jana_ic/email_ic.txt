@@ -1,0 +1,476 @@
+Here is a smattering of snippets. It's nowhere near the whole package and may or may not add to understanding, but here is the code which sets up the initial conditions and the supporting IDL code. The first section is the input file inflow.inp, which is for the wind for the wind tunnel - what the starting speed, ending speed, etc is. The second section is the input file sethvc2.inp (these are all named historically - just put in dwarf where you see hvc) which is the input file for the cloud characteristics: what is the density of the background gas, the central density of the dwarf, etc. In order to get inputs that work to put into sethvc2.inp, there is a little process. The first is to plot a cooling curve with plotcool.pro (attached), from which you can find rough values for pairs of densities and temperatures which have the same pressure, so that you can match the pressure across the cloud boundary. Once you have values from that program, you can use them as initial guesses for the program initialcool.pro (attached), which will give you the constants C_p1 and C_p2 that you need in order to have the form of the profile, as well as r_m, the "matching radius" which corresponds to the physical extent of the gas/edge of your galaxy.
+
+Following that is the fortran code where the initial conditions are actually set up. I'm abysmal at making code readable/sensical, so I apologize for that!
+
+inflow.inp
+
+5d0       ! # arguments
+2d0       ! type of inflow
+0d0       ! starting velocity
+2.2d1     ! final velocity
+1.2d-2    ! time to ramp to final velocity
+0.0d0     ! time at which to start wind
+
+sethvc2.inp
+
+1         ! idens: 0: exp-profile, 1: power-law
+0         ! igrav: 0: NFW
+4.6138d-3 !1.5119d-2 ! dens0: background gas density
+1d2       ! dens1: peak gas density
+3.718d-1  !1.407d0   ! rho1rm: inner matching density (plotcool.pro)
+4.61384d-3 !1.512d-2  ! rho2rm: outer matching density (plotcool.pro)
+9.182d-1  !8.102d-1  ! temp1: cloud temperature (for 2-region isothermal cooling case)
+7.40914d1 !7.51d1    ! temp0: background temperature
+3.378d-2  ! radius1: "half amplitude radius"
+5d-4      ! sig0: width of taper
+0d0       ! xcen
+0d0       ! ycen
+0d0       ! zcen
+8.993d-2  ! bpar: scale radius for DM halo
+5d2       ! rho0: peak density for DM halo
+1.5d-2    ! rgas: scaling radius for gas density
+1.125d0   ! apow: exponent for pwer-law density distribution
+
+Relevant portion of the code for the initial condition setup:
+
+!--------------------------------------------------------------------
+! iqval = 121
+!   "HVC" with external gravitational potential.
+!   Initial conditions for HVC-models. Material enters at lower y/z-boundary and
+!   leaves at upper y/z-boundary. Other boundaries can take any value (1,3,4).
+!   Needs input file "sethvc2.inp" for special parameters.
+!   Note that the setup is slightly different from problem #120. This
+!   here can be run in 2D.
+!     Sets the density profile and the DM profile, then determines 
+!   pressure and temperature necessary to balance gas. 
+!     The input file sethvc2.inp has been modified.
+!   
+! NEEDS: -MPI
+!        *MHD
+!        -2FLUID
+! COMM :
+! BCs  : 
+! GRID : 
+! DIM  : 
+! TIME : 
+! GAMMA: 
+  if (iqval .eq. 121) then
+
+    open(unit=inpunit,file="sethvc2.inp",status="unknown")
+    read(inpunit,*) idens     ! 0: exponential density profile
+                              ! 1: power-law profile
+    read(inpunit,*) igrav     ! 0: NFW
+    read(inpunit,*) dens0     ! background density
+    read(inpunit,*) dens1     ! central density
+#ifdef UCOOL
+    read(inpunit,*) rho1rm    ! inner matching radius density
+    read(inpunit,*) rho2rm    ! outer...  
+    read(inpunit,*) temp1     ! inner (lower) isothermal temperature from plotcool.pro
+#endif
+    read(inpunit,*) temp0     ! background temperature/upper (isothermal) temperature
+    read(inpunit,*) radius1   ! "half amplitude radius" of cloud/outer radius (R_L)
+    read(inpunit,*) sig0      ! width of taper
+    read(inpunit,*) xcen      ! x-center of cloud
+    read(inpunit,*) ycen      ! y-center of cloud
+    read(inpunit,*) zcen      ! z-center of cloud
+    read(inpunit,*) bpar      ! for isochrone potential, imode=1
+    read(inpunit,*) rho0      ! central density for DM potential
+    read(inpunit,*) rgas      ! scaling radius for gas 
+    read(inpunit,*) apow      ! exponent for power-law density distribution
+    close(inpunit)
+
+!   All quantities are cell centered.
+!   Coordinates are at the cell walls, e.g. grdx(ix) denotes the left cell wall of dens(ix). 
+!   This is the 3D setup. 2D follows below.
+    if (ndim .eq. 3) then
+      narg = 10
+      allocate(pprof(nz-1))        !radial pressure profile - MODIFY?
+      allocate(ptprof(2,nz-1))    !radial pressure,temp prof - MODIFY?
+      allocate(args(narg))
+      args( 1) = dble(idens)
+      args( 2) = dble(igrav)
+      args( 3) = rho0
+      args( 4) = bpar
+      args( 5) = radius1
+      args( 6) = sig0
+      args( 7) = dens0
+      args( 8) = dens1
+      args( 9) = rgas
+      args(10) = apow
+#ifdef UCOOL
+      rmatch = 0d0
+      cs1   = dsqrt(gamma*temp1) ! soundspeeds
+      cs2   = dsqrt(gamma*temp0)
+      cphi  = 4d0*pi*rho0*bpar**3
+      cp2   = dens0*dexp(-cphi/(cs2**2*radius1)*dlog(1d0+radius1/bpar))
+      !Use bisearch to find the matching radius
+      eps = 1d-7
+      nmax = 1000
+      rhi = ylen
+      rlo = 0d0
+      ic = 0
+      rhomid = 1d-32
+      do while (((dabs(rhomid-rho2rm)/rho2rm) .gt. eps) .and. (ic .le. nmax))
+        rmid = 0.5d0*(rhi+rlo)
+        rhomid = cp2*dexp((cphi/(cs2**2*rmid))*dlog(1d0+rmid/bpar))
+        if (rhomid .gt. rho2rm) then
+          rlo = rmid
+        else
+          rhi = rmid
+        endif
+        ic = ic+1
+      enddo
+      if (ic .ge. nmax) then
+        write(logunit,'("Warning: No convergence in bisearch!")')
+      else
+        rmatch = rmid
+      endif
+      cp1 = rho1rm/dexp((cphi/(cs1**2*rmatch))*dlog(1d0+(rmatch/bpar)))
+      write(logunit,'("SETTESTINIT: cs1 = ",e13.5,", cs2 = ",e13.5,", cp1 = ",e13.5,", cp2 = ",e13.5,", rmatch = ",e13.5)') &
+           cs1, cs2, cp1,cp2, rmatch
+#endif
+      totmass = 0d0
+      do iz = izbeg,izend
+        dz   = grdz(iz) - grdz(iz-1)
+        ztmp = 0.5d0*(grdz(iz)+grdz(iz-1))
+        do iy = iybeg,iyend
+          dy   = grdy(iy) - grdy(iy-1)
+          ytmp = 0.5d0*(grdy(iy)+grdy(iy-1))
+          do ix = ixbeg,ixend
+            dx   = grdx(ix) - grdx(ix-1)
+            xtmp = 0.5d0*(grdx(ix)+grdx(ix-1))
+            momx(ix,iy,iz) = 0d0
+            momy(ix,iy,iz) = 0d0
+            momz(ix,iy,iz) = 0d0
+#ifdef UMAGFIELD
+            momx(ix,iy,iz) = bx0
+            momy(ix,iy,iz) = by0
+            momz(ix,iy,iz) = bz0
+#endif
+            r2 = dsqrt((xtmp-xcen)**2 + (ytmp-ycen)**2 + (ztmp-zcen)**2)
+#ifdef UCOOL
+!         define the densities
+            rho1 = cp1*dexp((cphi/(cs1**2*r2))*dlog(1d0+(r2/bpar)))
+            rho2 = cp2*dexp((cphi/(cs2**2*r2))*dlog(1d0+(r2/bpar)))
+            tanh2 = 5d-1*(dtanh((r2-rmatch)/sig0)+1d0)
+            tanh1 = 1d0-tanh2
+            dens(ix,iy,iz) = (tanh1*rho1)+(tanh2*rho2)
+            if (ix .eq. (ixend-ixbeg+1)/2+ixbeg) then
+              write(logunit,'("iy,rad,rho2 = ",i5,e13.5,e13.5,e13.5)') iy-iybeg,r2,rho2,dens(ix,iy,iz)
+            endif
+            if (r2 .lt. rmatch) then
+              press = rho1*temp1
+            else
+              press = rho2*temp0
+            endif
+            etot(ix,iy,iz) = press/(gamma-1d0)
+#else            
+            dens(ix,iy,iz) = density(r2,narg,args)
+#endif
+#ifdef UGRAV
+            grav(ix,iy,iz) = setgravpot(r2,narg,args,logunit)
+#endif
+#ifdef UEULER
+            if (r2 .lt. radius1) then
+              qeul(ix,iy,iz) = 1.0
+            else
+              qeul(ix,iy,iz) = 0.0
+            endif
+#endif
+            totmass = totmass + dens(ix,iy,iz)*dx*dy*dz
+          enddo
+        enddo
+      enddo  
+      totmass = totmass - dens0*xlen*ylen*zlen
+      write(logunit,'("SETTESTINIT:totmass = ",e13.5)') totmass
+#ifndef UCOOL
+      vstart(1) = dens0*temp0
+      vstart(2) = temp0
+      print,'rungekutta'
+      call nr_rkdumb(vstart, 0.5*dx, zlen-0.5*dx, nz-1, dx, 2, narg, args, ptprof)
+      pprof(:) = ptprof(1,:)
+      print,'ptprof done'
+      do iz = izbeg,izend
+        dz = grdz(iz) - grdz(iz-1)
+        ztmp = 0.5d0*(grdz(iz)+grdz(iz-1))
+        do iy = iybeg,iyend
+        dy = grdy(iy) - grdy(iy-1)
+        ytmp = 0.5d0*(grdy(iy)+grdy(iy-1))
+          do ix = ixbeg,ixend
+            dx = grdx(ix) - grdx(ix-1)
+            xtmp = 0.5d0*(grdx(ix)+grdx(ix-1))
+            r2   = dsqrt((xtmp-xcen)**2+(ytmp-ycen)**2+(ztmp-zcen)**2)
+!       linear interpolation of pressure profile
+            i0   = floor(dble(nz)*r2/(zlen-dz))+1
+            i1   = i0+1
+            odx1 = (r2-(dble(i0)+0.5d0)*dx)/dx
+            etot(ix,iy,iz) = (pprof(i0)*(1d0-odx1)+pprof(i1)*odx1)/(gamma-1d0) 
+          enddo
+        enddo
+      enddo
+#endif
+      do ix = ixbeg,ixend
+        xtmp = 0.5d0*(grdx(ix)+grdx(ix-1))
+        do iy = iybeg,iyend
+          ytmp = 0.5d0*(grdy(iy)+grdy(iy-1))
+          do iz = 1,iord 
+            ztmp = 0.5d0*(grdz(iz)+grdz(iz-1))
+            r2 = dsqrt((xtmp-xcen)**2 + (ytmp-ycen)**2 + (ztmp-zcen)**2)
+            zbsetlo(ix,iy,iz,1) = dens0
+#ifdef UISOTHERMAL
+            zbsetlo(ix,iy,iz,2) = 0.5d0*dens0/lambda
+#else
+            zbsetlo(ix,iy,iz,2) = dens0*temp0/(gamma-1d0)
+#endif
+            zbsetlo(ix,iy,iz,3) = 0d0
+            zbsetlo(ix,iy,iz,4) = 0d0
+            zbsetlo(ix,iy,iz,5) = 0d0
+#ifdef UMAGFIELD
+            zbsetlo(ix,iy,iz,6) = bx0
+            ybsetlo(ix,iy,iz,7) = by0
+            ybsetlo(ix,iy,iz,8) = bz0
+#endif
+#ifdef UGRAV
+!         also need to set the grav potential at boundaries
+            zbsetlo(ix,iy,iz,6+iosmag) = setgravpot(r2,narg,args,logunit)
+#endif
+#ifdef UEULER
+            zbsetlo(ix,iy,iz,6+iosmag+iosgrv) = 0d0
+#endif
+          enddo
+        enddo
+      enddo  
+      deallocate(pprof)
+      deallocate(ptprof)
+    !endif ! if (ndim .eq. 3)
+!OLD 3D BRANCH
+!exparg     = (r2-radius1)/(pert*xlen)
+!            dexpp          = dexp( exparg)
+!            dexpm          = dexp(-exparg)
+!            prof1= 0.5d0*(1d0-(dexpp-dexpm)/(dexpp+dexpm))
+!            if (abs(imode) .eq. 1) then
+!              prof1=  prof1*(0.75d0*totmass2/(pi*bpar**3))*(1d0+(r2/bpar)**2)**(-2.5d0)
+!              prof1= prof1/(dens1-dens0)
+!            endif
+!            if (abs(imode) .eq. 2) then ! see Burton et al. 2001, A&A
+!              prof1= prof1*dexp(-r2/bpar)
+!            endif
+!            dens(ix,iy,iz) = dens0 + (dens1-dens0)*prof1
+!            etot(ix,iy,iz) = prss0/(gamma-1d0)
+!            momx(ix,iy,iz) = vx0*(1d0-prof1) - prof1*gradv*ytmp
+!            momy(ix,iy,iz) = vy0*(1d0-prof1) + prof1*gradv*xtmp
+!            momz(ix,iy,iz) = 0d0 !vz0*(1d0-prof1)
+!#ifdef UMAGFIELD
+!            magx(ix,iy,iz) = bx0
+!            magy(ix,iy,iz) = by0
+!            magz(ix,iy,iz) = bz0
+!#endif
+!            totmass = totmass + dens(ix,iy,iz)*dx*dy*dz
+!          enddo
+!        enddo
+!      enddo
+!!     subtract background density (from mass): mass in cloud
+!      totmass = totmass - dens0*xlen*ylen*zlen
+!      write(logunit,'("SETTESTINIT: totmass(2) = ",e13.5)') totmass
+!#ifdef UGRAV
+!!     another loop to set the gravitational potential
+!      do iz = izbeg,izend
+!!        dz = grdz(iz) - grdz(iz-1)
+!        ztmp = 0.5d0*(grdz(iz)+grdz(iz-1))
+!        do iy = iybeg,iyend
+!          do ix = ixbeg,ixend
+!            grav(ix,iy,iz) = dble(iextgrav)*(ztmp-zmax)*0.5d0*dens0*vz0**2*pi*radius1**2/totmass
+!         enddo
+!        enddo
+!      enddo
+!#endif
+!     ... and don't forget the inflow boundary...
+!     Flow enters at the bottom of the domain which in 3D is the lower z-boundary
+!      do iy = iybeg,iyend
+!        do ix = ixbeg,ixend
+!          do iz = 1,iord
+!            zbsetlo(ix,iy,iz,1) = dens0
+!#ifdef UISOTHERMAL
+!            zbsetlo(ix,iy,iz,2) = 0.5d0*dens0/lambda
+!#else
+!            zbsetlo(ix,iy,iz,2) = prss0/(gamma-1d0)
+!#endif
+!            zbsetlo(ix,iy,iz,3) = vx0
+!            zbsetlo(ix,iy,iz,4) = vy0
+!            zbsetlo(ix,iy,iz,5) = vz0
+!#ifdef UMAGFIELD
+!            zbsetlo(ix,iy,iz,6) = bx0
+!            zbsetlo(ix,iy,iz,7) = by0
+!            zbsetlo(ix,iy,iz,8) = bz0
+!#endif
+!          enddo
+!        enddo
+!      enddo
+!   now comes the 2D branch. Could have engineered everything in one branch, 
+!   but it's easier to read this way.
+    elseif (ndim .eq. 2) then
+      narg = 10
+      allocate(pprof(ny-1))      ! radial pressure profile
+      allocate(ptprof(2,ny-1))   ! radial pressure & temperature profile
+      allocate(args(narg))       ! function-specific arguments for integrator
+      args( 1) = dble(idens)     ! copy the parameters to argument array
+      args( 2) = dble(igrav)
+      args( 3) = rho0            
+      args( 4) = bpar
+      args( 5) = radius1
+      args( 6) = sig0
+      args( 7) = dens0
+      args( 8) = dens1
+      args( 9) = rgas
+      args(10) = apow
+#ifdef UCOOL
+      ! If we have a cooling curve, we need to use the upper and lower isothermal
+      ! branch to determine the density. The pressure is continuous across the
+      ! unstable density range (see Grcevich et al. 09)
+      rmatch= 0d0
+      cs1   = dsqrt(gamma*temp1) ! soundspeeds
+      cs2   = dsqrt(gamma*temp0)
+      cphi  = 4d0*pi*rho0*bpar**3
+      cp2   = dens0*dexp(-cphi/(cs2**2*radius1)*dlog(1d0+radius1/bpar))
+      !Use bisearch to find the matching radius
+      eps = 1d-7
+      nmax = 1000
+      rhi = ylen
+      rlo = 0d0
+      ic = 0
+      rhomid = 1d-32
+      do while (((dabs(rhomid-rho2rm)/rho2rm) .gt. eps) .and. (ic .le. nmax))
+        rmid = 0.5d0*(rhi+rlo)
+        rhomid = cp2*dexp((cphi/(cs2**2*rmid))*dlog(1d0+rmid/bpar))
+        if (rhomid .gt. rho2rm) then 
+          rlo = rmid
+        else
+          rhi = rmid
+        endif
+        ic = ic+1
+      enddo
+      if (ic .ge. nmax) then
+        write(logunit,'("Warning: No convergence in bisearch!")')
+      else
+        rmatch = rmid
+      endif
+      cp1 = rho1rm/dexp((cphi/(cs1**2*rmatch))*dlog(1d0+(rmatch/bpar)))
+      write(logunit,'("SETTESTINIT: cs1 = ",e13.5,", cs2 = ",e13.5,", cp1 = ",e13.5,", cp2 = ",e13.5,", rmatch = ",e13.5)') &
+           cs1, cs2, cp1,cp2, rmatch
+#endif
+      iz = 1 ! dead coordinate
+      totmass = 0d0
+      do iy = iybeg,iyend
+        dy = grdy(iy) - grdy(iy-1)
+        ytmp = 0.5d0*(grdy(iy)+grdy(iy-1))
+        do ix = ixbeg,ixend
+          dx = grdx(ix) - grdx(ix-1)
+          xtmp = 0.5d0*(grdx(ix)+grdx(ix-1))
+          momx(ix,iy,iz) = 0d0
+          momy(ix,iy,iz) = 0d0  ! Ramp up the velocity....
+          momz(ix,iy,iz) = 0d0
+#ifdef UMAGFIELD
+          magx(ix,iy,iz) = bx0
+          magy(ix,iy,iz) = by0
+          magz(ix,iy,iz) = bz0
+#endif
+          r2 = dsqrt((xtmp-xcen)**2 + (ytmp-ycen)**2)
+!         set the gas density profile in cloud. See function "density" below.
+#ifdef UCOOL
+!         define the densities
+          rho1 = cp1*dexp((cphi/(cs1**2*r2))*dlog(1d0+(r2/bpar)))
+          rho2 = cp2*dexp((cphi/(cs2**2*r2))*dlog(1d0+(r2/bpar)))
+          tanh2 = 5d-1*(dtanh((r2-rmatch)/sig0)+1d0)
+          tanh1 = 1d0-tanh2
+          dens(ix,iy,iz) = (tanh1*rho1)+(tanh2*rho2)
+          if (ix .eq. (ixend-ixbeg+1)/2+ixbeg) then
+            write(logunit,'("iy,rad,rho2 = ",i5,e13.5,e13.5,e13.5)') iy-iybeg,r2,rho2,dens(ix,iy,iz)
+          endif
+          if (r2 .lt. rmatch) then
+            press = rho1*temp1
+          else
+            press = rho2*temp0
+          endif
+!Not sure if this is right...
+          etot(ix,iy,iz) = press/(gamma-1d0)
+#else
+          dens(ix,iy,iz) = density(r2,narg,args)
+#endif
+#ifdef UGRAV
+          grav(ix,iy,iz) = setgravpot(r2,narg,args,logunit)
+#endif
+#ifdef UEULER
+!         Eulerian tracer. Keep track of material in cloud.
+          if (r2 .lt. radius1) then
+            qeul(ix,iy,iz) = 1.0
+          else
+            qeul(ix,iy,iz) = 0.0
+          endif
+#endif
+          totmass = totmass + dens(ix,iy,iz)*dx*dy
+        enddo
+      enddo
+      totmass = totmass - dens0*xlen*ylen
+      write(logunit,'("SETTESTINIT: totmass = ",e13.5)') totmass
+#ifndef UCOOL
+!     For the cooling case, everything can be done in the first loop, since we know
+!     the analytic form of the density/pressure profile.
+!     Find the pressure given the potential and density, by solving the
+!     diff. eqs. dP/dr = -rho dPhi/dr and dT/dr = (rho dP/dr - P drho/dr)/rho^2
+      vstart(1) = dens0*temp0 ! background values: Initial values for integrator.
+      vstart(2) = temp0
+      call nr_rkdumb(vstart, 0.5*dx, ylen-0.5*dx, ny-1, dx, 2, narg, args, ptprof)
+      pprof(:) = ptprof(1,:)
+!     interpolate radial profile onto cartesian grid
+      do iy = iybeg,iyend
+        dy = grdy(iy) - grdy(iy-1)
+        ytmp = 0.5d0*(grdy(iy)+grdy(iy-1))
+        do ix = ixbeg,ixend
+          dx = grdx(ix) - grdx(ix-1)
+          xtmp = 0.5d0*(grdx(ix)+grdx(ix-1))
+          r2   = dsqrt((xtmp-xcen)**2+(ytmp-ycen)**2)
+!         linear interpolation of pressure profile
+          i0   = floor(dble(ny)*r2/(ylen-dy))+1
+          i1   = i0+1
+          odx1 = (r2-(dble(i0)+0.5d0)*dx)/dx
+          etot(ix,iy,iz) = (pprof(i0)*(1d0-odx1)+pprof(i1)*odx1)/(gamma-1d0)
+        enddo
+      enddo
+#endif
+!     ... and don't forget the inflow boundary...
+!     Flow enters at the bottom of the domain which in 2D is the y-direction...
+!     Here we assume a constant "wind". Any profile extending that far will 
+!     not be used.
+      do ix = ixbeg,ixend
+        xtmp = 0.5d0*(grdx(ix)+grdx(ix-1))
+        do iy = 1,iord
+          ytmp = 0.5d0*(grdy(iy)+grdy(iy-1))
+          r2   = dsqrt((xtmp-xcen)**2+(ytmp-ycen)**2)
+          ybsetlo(ix,iz,iy,1) = dens0
+#ifdef UISOTHERMAL
+          ybsetlo(ix,iz,iy,2) = 0.5d0*dens0/lambda
+#else
+          ybsetlo(ix,iz,iy,2) = dens0*temp0/(gamma-1d0)
+#endif
+          ybsetlo(ix,iz,iy,3) = 0d0
+          ybsetlo(ix,iz,iy,4) = 0d0
+          ybsetlo(ix,iz,iy,5) = 0d0
+#ifdef UMAGFIELD
+          ybsetlo(ix,iz,iy,6) = bx0
+          ybsetlo(ix,iz,iy,7) = by0
+          ybsetlo(ix,iz,iy,8) = bz0
+#endif
+#ifdef UGRAV
+!         also need to set the grav potential at boundaries
+!         the next line was stopping compilation so copying directly from function setgravpot
+          ybsetlo(ix,iz,iy,6+iosmag) = setgravpot(r2,narg,args,logunit)
+#endif
+#ifdef UEULER
+          ybsetlo(ix,iz,iy,6+iosmag+iosgrv) = 0d0
+#endif
+        enddo
+      enddo
+      deallocate(pprof)
+      deallocate(ptprof)
+    endif ! if (ndim .eq. 2)
+  endif  ! test 121
