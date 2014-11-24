@@ -1,0 +1,5 @@
+
+# use the following to make the movie
+# set bitrate to   50*25 * width * height / 256
+mencoder mf://*.png -mf w=2170:h=1040:fps=25:type=png -ovc lavc -lavcopts\
+ vcodec=mpeg4:mbd=2:trell:vbitrate=12079101 -oac copy -o output_full.avi

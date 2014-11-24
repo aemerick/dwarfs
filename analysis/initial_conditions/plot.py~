@@ -1,0 +1,43 @@
+import numpy as np
+from astropy import units as u
+import matplotlib.pyplot as plt
+
+k = 1.380658E-16
+mh = 1.6733E-24
+G  = 6.67259E-8
+
+
+rho_center = 8.3665E-24 # 5E2 * 1E-2 / mh
+T2         = 7.4E5      # 
+bparam     = 2.46854206E21   # 8.993E-2 * 8.896E3 pc -> cm  = 800 pc
+RL         = 9.27267343E20   # 3.378E-2 * 8.896E3 pc -> cm  = 300 pc
+rhoRL      = 7.72027154E-29  # 4.6138E-3 * 1.0E-2 * mh
+rho2rm     = 7.72027154E-29   # 4.6138E-3 * 1E-2 * mh
+rho1rm     = 
+
+cs2 = (1.4 * k * T2 / mh)**0.5
+cPhi = 4.0 * np.pi * G * rho_center * bparam**3
+
+cp2 = rhoRL / np.exp( (cPhi/(cs2*cs2*RL)) * np.log(1.0 + RL/bparam))
+
+print 'cs2 - cp2 - cPhi'
+print cs2, cp2, cPhi
+
+r = np.logspace(-10, 22, 1.0E6)
+
+rhomid = cp2 * np.exp( (cPhi/(cs2*cs2*r)) * np.log(1.0 + r/bparam))
+
+print np.min(rhomid), np.max(rhomid), np.average(rhomid)
+
+r = (r*u.cm).to(u.pc).value
+
+plt.plot(r,rhomid)
+
+plt.plot([300.0,300.0],plt.ylim(),color='black')
+plt.plot(plt.xlim(),[rho2rm,rho2rm],color='black',ls='-.')
+plt.plot(plt.xlim(),[cp2,cp2], color='red')
+plt.savefig('rho.png')
+
+
+
+

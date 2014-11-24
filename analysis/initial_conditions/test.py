@@ -5,7 +5,7 @@ kb = 1.380658E-16 * u.erg / u.k
 mh = 1.6733E-24 * u.g
 G  = 6.67259E-8 * u.cm**3 / u.g / (u.second)**2
 
-R_cl  = (200.0 * u.pc).to(u.cm)
+R_cl  = (300.0 * u.pc).to(u.cm)
 rho_1 = mh * 2.0E-4  / (u.cm**3)
 rho_2 = 300.0 * rho_1 
 

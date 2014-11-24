@@ -2,13 +2,13 @@
 
 name='blobtest_hdf5_chk_'
 
-for i in $(seq -f "%04g" 0 120)
+for i in $(seq -f "%04g" 0 800)
 do
 
     fname1="./density/""$name$i""_Slice_z_density.png"
     fname2="./pressure/""$name$i""_Slice_z_pressure.png"
     fname3="./temperature/""$name$i""_Slice_z_temperature.png"
-    fname4="./gpot/""$name$i""_Slice_z_gpot.png"
+    fname4="./v_r/""$name$i""_Slice_z_v_r.png"
 
     outname="./panel/""$name$i""_panel_plot.png"
 
