@@ -52,6 +52,22 @@ class dwarf:
         self.radius = np.float( self.params['sim_RL'] ) * yt.units.cm
         
         
+       # self._define_default_params()
+        
+    def _define_default_params(self):
+        """
+        make sure to define any default parameters that may be needed later
+        but aren't necessarily specified in the flash.par file
+        """
+        
+        defaults = {'gamma': 1.4}
+        
+        for d in defaults:
+            if not d in self.params.keys():
+                self.params[d] = defaults[d]
+        
+        
+        
     def param_contained(self, field, weight = None, calc_type = 'average',
                               r = None):
         """
@@ -77,4 +93,71 @@ class dwarf:
             
             
         return result
+
+
+    def rmatch(self, nProfile, eps = 1.0E-7, nmax = 2000):
+        """
+        Calculates the match radius of the dwarf galaxy 
+        This is just a copy paste of the Fortran code (almost) in FLASH sim
+        """
+        G = 6.67259E-8 ! grav constant in cgs
+        k = 1.380658E-16
+        mh = 1.6733E-24
+        
+        gamma = self.params['gamma']
+        
+        cs1 = (gamma * k * self.params['sim_TCloud'] / mh)
+        cs2 = (gamma * k * self.params['sim_TAmbient' / mh)
+        
+        cPhi = 4.0 * np.pi * G * self.params['sim_rhoCenter'] *\
+                    self.params['sim_bParam'] ** 3
+                    
+        cRho2 = self.params['sim_rhoRL'] * np.exp((-cPhi/\
+                     (cs2*cs2*self.params['sim_RL']))*\
+                     np.log(1.0 + self.params['sim_RL'] /\
+                     self.params['sim_bParam']))
+                     
+        ###
+        rhi = 2.0 * self.params['sim_yCenter']
+        rlo = 0.0
+        ic  = 0
+        
+        rhomid = 1.0E-32
+        
+        
+        while (((np.abs(rhomid - self.params['sim_rho2rm'])\
+                /self.params['sim_rho2rm'] > eps) and (ic <= nmax))):
+                
+            rmid = 0.5 * (rhi + rlo)
+            rhomid = cRho2 * np.exp( (cPhi/(cs2*cs2*rmid))*\
+                                    np.log(1.0+rmid/self.params['sim_bParam']))
+                                    
+            if (rhomid .gt. self.params['sim_rho2rm']):
+                rlo = rmid
+            else:
+                rhi = rmid
+            
+        
+        self.RM = rmid
+        
+        return self.RM
+                
+
+
+
+def rps_param():
+    """ 
+    Calculate the ram pressure parameter
+    """
+    rps = 20
+    
+    return rps
+    
+        
+        
+    
+        
+
+
+
         

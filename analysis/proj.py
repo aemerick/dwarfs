@@ -53,15 +53,15 @@ yt.add_field('blob_center', function=_blob_center, units="cm")
 name = 'blobtest_hdf5_chk_'
 fields_list = ['v_r']
 
-fields_list = ['density','temperature','pressure','density']
+#fields_list = ['density','temperature','pressure','density','v_r','velx']
 blob_center = np.array([8.00E21,3.0857E21,3.0857E21])
 
-ilist = range(0,400,1)
+ilist = range(0,350,1)
 #ilist = range(0,1001,100)
 
 
-axis = 'z'
-outfolder = 'slicez'
+axis = 'y'
+outfolder = 'slicey'
 project = False
 velocity = False
 scale_field = False# if true, let yt decide how to scale color bar
