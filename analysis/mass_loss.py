@@ -35,8 +35,9 @@ plt.ylabel(r'M(t)/M$_o$')
 plt.legend(loc='best')
 #plt.semilogy()
 plt.ylim(0.0,1.0)
+plt.xlim(t[0],t[-1])
 plt.savefig('plots/mass_t.png')
 plt.close()    
     
-
+np.savetxt('mass_t.dat', (t,m), fmt='%6.5e',header="#t m")
     
