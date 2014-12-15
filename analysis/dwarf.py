@@ -10,7 +10,7 @@ except ImportError:
 
 class dwarf:
 
-    def __init__(self, ds, param_file, raw = True):
+    def __init__(self, ds, param_file, raw = True, rm=None):
         """
         If raw = true, do some grooming first to import the file
         """
@@ -42,7 +42,7 @@ class dwarf:
         stream = open(newfile, 'r')
         self.params     = yaml.load(stream, Loader=Loader)
         self._define_param_units()
-        
+        self.time = self.ds.current_time.value * yt.units.s
         
         self.center = np.array( [ np.float(self.params['sim_xctr']),
                                   np.float(self.params['sim_yctr']),
@@ -51,7 +51,9 @@ class dwarf:
         self.center = self.center    
                                        
         self.radius = np.float( self.params['sim_RL'] )
-        
+
+        if not rm == None:
+            self.RM = rm
 
         
        # self._define_default_params()
@@ -160,6 +162,8 @@ class dwarf:
         Calculates the match radius of the dwarf galaxy 
         This is just a copy paste of the Fortran code (almost) in FLASH sim
         """
+        
+        
         G = 6.67259E-8    * yt.units.cm**3 / yt.units.g / yt.units.s**2
         k = 1.380658E-16  * yt.units.erg / yt.units.Kelvin
         mh = 1.6733E-24   * yt.units.g
