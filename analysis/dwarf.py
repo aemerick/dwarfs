@@ -215,13 +215,20 @@ class dwarf:
 
         if data_source == None:
             if hasattr(self, 'RM'):
-                r = self.RM
+                if not self.RM == None:
+                    r = self.RM
+                else:
+                    self.rmatch(2000)
+                    r = self.RM
             else:
                 self.rmatch(2000)
                 r = self.RM
                 
                 
             data_source = self.ds.sphere(self.center, (2.0*r,'cm'))
+        else:
+            r = data_source.radius
+
        
         if xmin == None or xmax == None: 
             if xfield == 'radius':
@@ -232,13 +239,23 @@ class dwarf:
                 xmin = np.min(sphere[xfield])
                 xmax = np.max(sphere[xfield])
                 
-            
+        print xmin, xmax, 'asdfasdfa'    
+
+#yt.create_profile(sphere, 'radius', ['Hot_Gas_Mass'],
+ #                               n_bins=nbins, extrema = {'radius': (0.0, R)},un$
+  #                              weight_field = None, logs={'radius':False})
+
+        prof = yt.create_profile(data_source,xfield, [field], n_bins=nbin,
+                          extrema={xfield:(xmin,xmax)},units={'radius':'cm'},
+                          weight_field = weight, logs={'radius':False})
+
         
-        prof = yt.Profile1D(data_source, xfield, nbin, xmin, xmax, weight)
+#        prof = yt.Profile1D(data_source, xfield, nbin, xmin, xmax, weight)
             
-        prof.add_fields(field)
-        
-        return prof.x, prof.field_data[field]
+ #       prof.add_fields(field)
+  
+       
+        return prof.x_bins, prof[field]
 
 
 

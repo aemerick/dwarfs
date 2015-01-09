@@ -4,6 +4,7 @@ import yt
 import glob
 import numpy as np
 
+
 # operate on all sorted checkpoint files
 ds_names = glob.glob('*_chk_*')
 ds_names.sort() 
