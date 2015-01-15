@@ -2,17 +2,105 @@ import os
 import yaml
 import numpy as np
 import yt
+import glob
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
     from yaml import Loader, Dumper
 
 
+
+class simulation: # need a better name
+
+    def __init__(self, ds_prefix, param_file = "flash.par", ds_dir="./"):
+        """
+        Initiate simulation class
+
+        ds_prefix : string
+            Prefix name to checkpoint and particle files
+
+        param_file : string
+            Name of parameter file (assumed "flash.par")
+
+        ds_dir : string
+            Directory where all the data is located (assumed "./")
+        """
+
+        self.param_file = param_file
+        self.ds_dir     = ds_dir
+
+        # make the ds_prefix prettier and just the meat        
+        if "chk" in ds_prefix:
+            ds_prefix = ds_prefix.replace("chk","")
+            if "__" in ds_prefix:
+                ds_prefix = ds_prefix.replace("__","")
+
+        if ds_prefix[-1] == "_":
+            ds_prefix = ds_prefix[:-1]
+ 
+        self.ds_prefix = ds_prefix
+
+        # get the checkpoint file names into a list
+        ds_list = glob.glob(ds_dir + ds_prefix + "*chk*")
+        ds_list.sort()
+        self.ds_list = ds_list
+    
+
+        # check if there are particle files. Do the same
+        # if there are         
+        part_list = glob.glob(ds_dir + ds_prefix + "*part*")
+        part_list.sort()
+        self.part_list = part_list 
+
+      
+        # load the flash.par parameter file
+        self.params = _load_param_file(self)
+
+        # compute (roughly) t at each checkpoint file
+        
+        
+
+    def _load_param_file(self):
+    
+
+        newfile = self.ds_dir + self.param_file + ".mod"
+        # os.system("cp " + param_file + " " + newfile)
+
+        # convert = to : and save to new file
+        bash_command = "sed 's/=/:/g' " + param_file + " > " + newfile
+        os.system(bash_command)
+
+        # remove all comments
+        bash_command = "sed -i 's:#.*$::g' " + newfile
+        os.system(bash_command)
+
+        # remove all blank lines
+        bash_command = "sed -i '/^$/d' " + newfile
+        os.system(bash_command)
+        
+
+
+        stream = open(newfile, 'r')
+        self.params     = yaml.load(stream, Loader=Loader)
+        self._define_param_units()
+
+        self.center = np.array( [ np.float(self.params['sim_xctr']),
+                                  np.float(self.params['sim_yctr']),
+                                  np.float(self.params['sim_zctr']) ])
+
+    def _define_param_units(self):
+
+        print "currently does nothing"
+    
+    
+
+
 class dwarf:
 
     def __init__(self, ds, param_file, raw = True, rm=None):
         """
-        If raw = true, do some grooming first to import the file
+        If raw = true, do some grooming first to import the parameter
+        file
         """
     
     
@@ -257,6 +345,9 @@ class dwarf:
        
         return prof.x_bins, prof[field]
 
+
+
+    
 
 
 def rps_param():
