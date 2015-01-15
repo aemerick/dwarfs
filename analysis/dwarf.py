@@ -52,17 +52,23 @@ class simulation: # need a better name
         part_list.sort()
         self.part_list = part_list 
 
-      
+        # load SN and SB files
+        _load_SN_data()
+        _load_SB_data()
+        
+     
         # load the flash.par parameter file
         self.params = _load_param_file(self)
 
         # compute (roughly) t at each checkpoint file
         
+
+
+ 
         
 
     def _load_param_file(self):
     
-
         newfile = self.ds_dir + self.param_file + ".mod"
         # os.system("cp " + param_file + " " + newfile)
 
@@ -77,9 +83,7 @@ class simulation: # need a better name
         # remove all blank lines
         bash_command = "sed -i '/^$/d' " + newfile
         os.system(bash_command)
-        
-
-
+    
         stream = open(newfile, 'r')
         self.params     = yaml.load(stream, Loader=Loader)
         self._define_param_units()
@@ -87,6 +91,49 @@ class simulation: # need a better name
         self.center = np.array( [ np.float(self.params['sim_xctr']),
                                   np.float(self.params['sim_yctr']),
                                   np.float(self.params['sim_zctr']) ])
+
+
+    def _load_SN_data(self):
+  
+        print "this function will load supernova info if it exists"
+
+        sn_path = self.ds_dir + "SNfeedback.dat"
+
+        if not os.path.isfile(sn_path):
+            self.SNdata = None
+            print "No supernova feedback file found"
+            return
+ 
+        # load the file here
+        SN_data = np.genfromtxt(sn_path, names=True)
+
+        # setup units
+        
+
+        #
+        self.SN_data = SN_data
+        
+
+
+    def _load_SB_data(self):
+
+        sb_path = self.ds_dir + "SBfeedback.dat"
+
+        if not os.path.isfile(sb_path):
+            self.SBdata = None
+            print "No SB feedback file found"
+            return
+
+        # load the file here
+        SB_data = np.genfromtxt(sb_path, names=True)
+ 
+        #
+        # 
+        self.SB_data = SB_data     
+
+        
+        
+        
 
     def _define_param_units(self):
 
