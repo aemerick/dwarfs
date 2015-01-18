@@ -5,6 +5,7 @@ import yt
 import glob
 
 from yt import units as u
+import plotTools as myplot # some convenience plotting tools
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -145,6 +146,16 @@ class simulation: # need a better name
     
     
 class SNSB:
+    """
+    General class to read in SN and SB feedback data and do some 
+    analysis with them. This is intended to be a parent class
+    to the SN and SB classes, that will do things that are general / 
+    applicable to both (since they are similar). Many of these functions
+    will have overwritten version in the SN and SB classes that will
+    be called from there. There should really be no point in 
+    initializing just a SNSB object. 
+    """
+
 
     def __init__(self, file_path, center = np.zeros(3)):
         """
@@ -172,9 +183,10 @@ class SNSB:
         data.dtype.names = names_list
 
         # save
+
         self.data = data
         
-    def plot_positions(self, cscale = None, **kwargs):
+    def plot_positions(self, **kwargs):
         """
         returns a 3d matplotlib plot of the 3d positions
         of the 
@@ -184,33 +196,25 @@ class SNSB:
         fig = plt.figure()
         ax  = fig.add_subplot(111, projection='3d')
 
-        posx, posy, posz = self._recenter('pos')
-        ax.plot(
+        posx, posy, posz = self._recenter()
+        ax.scatter(posx.value, posy.value, posz.value, kwargs)
 
-    def _recenter(self, to_recenter):
+        return fig, ax
+
+    def _recenter_pos(self):
         """
+        returns coordinates in the frame of sim center (the dwarf)
         """
   
-        if to_recenter == 'pos':
-            return self.data['posx'] - self.center[0],\
-                   self.data['posy'] - self.center[1],\
-                   self.data['posz'] - self.center[2]
-
-        elif to_recenter == 'vel':
-            x,y,z = self._recenter('pos')
-        
-            ### NEED TO FIX
-  
-            return self.data['velx'] * -1.0 * np.sign(
+        return self.data['posx'] - self.center[0],\
+               self.data['posy'] - self.center[1],\
+               self.data['posz'] - self.center[2]
 
     def _set_units(self):
         self.data['time']   *=  u.s
         self.data['posx']   *= u.cm
         self.data['posy']   *= u.cm
         self.data['posz']   *= u.cm
-#        self.data['radius'] *= u.cm
-#        self.data['mass']   *=  u.g
-    
     
 
 
@@ -238,6 +242,28 @@ class SN(SNSB):
         self.data['mass']   *=  u.g
     
 
+    def plot_positions(self, draw_radius = False, **kwargs):
+
+        fig, ax = SNSB.plot_positions(kwargs)
+ 
+        if draw_radius:
+
+            sn_spheres = []
+
+            posx, posy, posz = self._recenter()
+            i = 0
+            for r in self.data['radius']:
+                x,y,z = posx[i], posy[i], posz[i]
+                myplot.draw_sphere(ax, r.value,
+                        center = np.array([x.value,y.value,z.value]))
+                i = i + 1
+        
+            return fig, ax, sn_spheres
+
+        else:
+
+            return fig, ax
+            
 
 class SB(SNSB):
 
