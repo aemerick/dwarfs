@@ -119,7 +119,7 @@ class simulation: # need a better name
  
         # load the file here
         #SN_data = np.genfromtxt(sn_path, names=True)
-        self.SN = SN(sn_path)
+        self.SN = SN(sn_path, center = self.center)
         
 
 
@@ -133,7 +133,7 @@ class simulation: # need a better name
             return
 
         # load superbubble data
-        self.SB = SB(sb_path)     
+        self.SB = SB(sb_path, center = self.center)     
 
         
         
@@ -146,9 +146,16 @@ class simulation: # need a better name
     
 class SNSB:
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, center = np.zeros(3)):
+        """
+        Initializes SNSB feedback data files. Does general things
+        for both, but leaves details to separate SN and SB functions
+        
+        """
         self.fname = file_path
 
+        self.center = center
+ 
         data = np.genfromtxt(file_path, names=True)
 
         # do some bookkeeping on header names to make them
@@ -167,8 +174,34 @@ class SNSB:
         # save
         self.data = data
         
-    def plot_positions(self):
-        print "does nothing"
+    def plot_positions(self, cscale = None, **kwargs):
+        """
+        returns a 3d matplotlib plot of the 3d positions
+        of the 
+        """
+        plt.close() # clear  
+
+        fig = plt.figure()
+        ax  = fig.add_subplot(111, projection='3d')
+
+        posx, posy, posz = self._recenter('pos')
+        ax.plot(
+
+    def _recenter(self, to_recenter):
+        """
+        """
+  
+        if to_recenter == 'pos':
+            return self.data['posx'] - self.center[0],\
+                   self.data['posy'] - self.center[1],\
+                   self.data['posz'] - self.center[2]
+
+        elif to_recenter == 'vel':
+            x,y,z = self._recenter('pos')
+        
+            ### NEED TO FIX
+  
+            return self.data['velx'] * -1.0 * np.sign(
 
     def _set_units(self):
         self.data['time']   *=  u.s
@@ -177,18 +210,19 @@ class SNSB:
         self.data['posz']   *= u.cm
 #        self.data['radius'] *= u.cm
 #        self.data['mass']   *=  u.g
-
+    
     
 
 
 
 class SN(SNSB):
  
-    def __init__(self, file_path):
+    def __init__(self, file_path, center = np.zeros(3)):
 
-        SNSB.__init__(self, file_path)
+        SNSB.__init__(self, file_path, center)
 
         self._set_units()
+        
 
     def _set_units(self):
         """
@@ -207,9 +241,10 @@ class SN(SNSB):
 
 class SB(SNSB):
 
-    def __init__(self,file_path):
-
-        SNSB.__init__(self, file_path)
+    def __init__(self,file_path, center = np.zeros(3)):
+        
+ 
+        SNSB.__init__(self, file_path, center)
 
         self._set_units()
 
