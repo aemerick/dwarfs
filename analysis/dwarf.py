@@ -48,7 +48,6 @@ class simulation: # need a better name
         ds_list.sort()
         self.ds_list = ds_list
     
-
         # check if there are particle files. Do the same
         # if there are         
         part_list = glob.glob(ds_dir + ds_prefix + "*part*")
@@ -56,20 +55,31 @@ class simulation: # need a better name
         self.part_list = part_list 
 
         # load SN and SB files
-        _load_SN_data()
-        _load_SB_data()
+        self._load_SN_data()
+        self._load_SB_data()
         
-     
         # load the flash.par parameter file
         self.params = _load_param_file(self)
 
         # compute (roughly) t at each checkpoint file
+        self.times = _get_ds_index()\
+                     * self.params['checkpointFileIntervalTime']
+  
+    def _get_ds_index(self):
+        """
+        Returns the integer number associated will all 
+        known checkpoint files as an integer np array
+        """
+    
+        values = np.zeros(np.size(self.ds_list))
+        i = 0
+        for dsname in ds_list:
+            values[i] = int(dsname[-4:])
+            i = i + 1
+
+        return values
+          
         
-
-
- 
-        
-
     def _load_param_file(self):
     
         newfile = self.ds_dir + self.param_file + ".mod"
@@ -104,7 +114,7 @@ class simulation: # need a better name
 
         if not os.path.isfile(sn_path):
             self.SNdata = None
-            print "No supernova feedback file found"
+            print "No supernova feedback file found at " + sn_path
             return
  
         # load the file here
@@ -119,11 +129,10 @@ class simulation: # need a better name
 
         if not os.path.isfile(sb_path):
             self.SBdata = None
-            print "No SB feedback file found"
+            print "No SB feedback file found at " + sb_path
             return
 
-        # load the file here
-#        SB_data = np.genfromtxt(sb_path, names=True
+        # load superbubble data
         self.SB = SB(sb_path)     
 
         
@@ -161,6 +170,18 @@ class SNSB:
     def plot_positions(self):
         print "does nothing"
 
+    def _set_units(self):
+        self.data['time']   *=  u.s
+        self.data['posx']   *= u.cm
+        self.data['posy']   *= u.cm
+        self.data['posz']   *= u.cm
+#        self.data['radius'] *= u.cm
+#        self.data['mass']   *=  u.g
+
+    
+
+
+
 class SN(SNSB):
  
     def __init__(self, file_path):
@@ -170,7 +191,19 @@ class SN(SNSB):
         self._set_units()
 
     def _set_units(self):
-        print 'does nothing'
+        """
+        sets yt units for the data values that have units. 
+        calls parent function for shared values 
+        """
+ #       self.data['time']   *=  u.s
+ #       self.data['posx']   *= u.cm
+ #       self.data['posy']   *= u.cm
+ #       self.data['posz']   *= u.cm
+        SNSB._set_units(self)
+        self.data['radius'] *= u.cm
+        self.data['mass']   *=  u.g
+    
+
 
 class SB(SNSB):
 
@@ -180,8 +213,51 @@ class SB(SNSB):
 
         self._set_units()
 
+        self._load_creation_data()
+
     def _set_units(self):
-        print 'does nothing'
+        """
+        """
+        SNSB._set_units()
+        
+        self.data['velx'] *= u.cm / u.s
+        self.data['vely'] *= u.cm / u.s
+        self.data['velz'] *= u.cm / u.s
+
+    def _load_creation_data(self):
+        """
+        """
+      
+        sb_create_path = self.fname.replace('feedback.dat','create.dat')
+    
+        if (not os.path.isfile(sb_create_path)):
+            self.creation_data = None
+            print "No SBcreate.dat found at " + sb_create_path
+            return
+
+        data = np.genfromtxt(sb_create_path, names=True)
+
+        # adjust header names
+        i = 0
+        names_list = list(data.dtype.names)
+        for name in names_list:
+            num_str = "%02i"%(i)
+            names_list[i] = name.replace(num_str,'')
+            i = i + 1
+
+        # now, reassign
+        data.dtype.names = names_list
+
+        data['time'] *= u.s
+        data['posx'] *= u.cm; data['poxy'] *= u.cm; data['posz'] *= u.cm
+        data['velx'] *= u.cm/u.s ; data['vely'] *= u.cm / u.s; 
+        data['velz'] *= u.cm/u.s
+        data['SNinvT'] *= u.s
+
+        self.creation_data = data
+   
+           
+
 
 class dwarf:
 
