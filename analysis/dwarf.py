@@ -3,6 +3,9 @@ import yaml
 import numpy as np
 import yt
 import glob
+
+from yt import units as u
+
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
@@ -105,13 +108,8 @@ class simulation: # need a better name
             return
  
         # load the file here
-        SN_data = np.genfromtxt(sn_path, names=True)
-
-        # setup units
-        
-
-        #
-        self.SN_data = SN_data
+        #SN_data = np.genfromtxt(sn_path, names=True)
+        self.SN = SN(sn_path)
         
 
 
@@ -125,11 +123,8 @@ class simulation: # need a better name
             return
 
         # load the file here
-        SB_data = np.genfromtxt(sb_path, names=True)
- 
-        #
-        # 
-        self.SB_data = SB_data     
+#        SB_data = np.genfromtxt(sb_path, names=True
+        self.SB = SB(sb_path)     
 
         
         
@@ -140,7 +135,53 @@ class simulation: # need a better name
         print "currently does nothing"
     
     
+class SNSB:
 
+    def __init__(self, file_path):
+        self.fname = file_path
+
+        data = np.genfromtxt(file_path, names=True)
+
+        # do some bookkeeping on header names to make them
+        # nicer. Currently, headers are 00xxx, 01yyy, 02zzz, etc.
+        # want to remove the "00", "01", "02" ...
+        i = 0
+        names_list = list(data.dtype.names)
+        for name in names_list:
+            num_str = "%02i"%(i)           
+            names_list[i] = name.replace(num_str,'')
+            i = i + 1
+        
+        # now, reassign
+        data.dtype.names = names_list
+
+        # save
+        self.data = data
+        
+    def plot_positions(self):
+        print "does nothing"
+
+class SN(SNSB):
+ 
+    def __init__(self, file_path):
+
+        SNSB.__init__(self, file_path)
+
+        self._set_units()
+
+    def _set_units(self):
+        print 'does nothing'
+
+class SB(SNSB):
+
+    def __init__(self,file_path):
+
+        SNSB.__init__(self, file_path)
+
+        self._set_units()
+
+    def _set_units(self):
+        print 'does nothing'
 
 class dwarf:
 
