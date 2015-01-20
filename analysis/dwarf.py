@@ -107,6 +107,62 @@ class simulation: # need a better name
                                   np.float(self.params['sim_zctr']) ])
 
 
+    def _define_param_units(self):
+        """
+        Damnit yt
+        """
+
+        length_unit = yt.units.cm
+        temp_unit   = yt.units.Kelvin
+        time_unit   = yt.units.s
+        mass_unit   = yt.units.g
+        speed_unit  = yt.units.km / time_unit
+        pressure_unit = mass_unit / length_unit / time_unit**2
+        density_unit  = mass_unit / length_unit**3
+
+        length_params = ['sim_xctr','sim_yctr', 'sim_zctr', 'sim_RL',
+                         'sim_bParam', 'sim_wTaper', 'sim_rScale',
+                         'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax']
+
+
+        density_params = ['sim_smallRho', 'sim_rhoAmbient', 'sim_rhoCloud',
+                          'sim_rhoCenter', 'sim_rho1rm', 'sim_rho2rm',
+                          'sim_rhoRL']
+
+        time_params   = ['checkpointFileIntervalTime',
+                         'particleFileIntervalTime',
+                         'tmax', 'dtmin', 'dtmax',
+                         'sblife','tsn1','tsn2','tsb']
+
+        temperature_params = ['sim_TAmbient', 'sim_TCloud']
+        pressure_params    = ['sim_smallP', 'sim_pAmbient']
+
+        speed_params       = ['sim_windVel', 'sim_flowSpeed']
+
+        param_dict = {'length': length_params, 'density': density_params,
+                      'pressure': pressure_params,
+                      'temperature': temperature_params,
+                      'speed'      : speed_params, 'time' : time_params}
+
+        units_dict = {'length': length_unit,
+                      'density': density_unit,
+                      'temperature': temp_unit,
+                      'speed': speed_unit,
+                      'pressure': pressure_unit, 'time' : time_params}
+
+        for ptype in param_dict:
+
+            # would like to do without this loop, but is really the only way
+            # to be safe with the exceptions... 
+            for pname in param_dict[ptype]:
+
+                try:
+                    self.params[pname] = np.float(self.params[pname])\
+                                                             * units_dict[ptype]
+                except KeyError:
+                    pass
+
+
     def _load_SN_data(self):
   
         print "this function will load supernova info if it exists"
