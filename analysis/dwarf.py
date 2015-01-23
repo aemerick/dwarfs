@@ -5,7 +5,9 @@ import yt
 import glob
 
 from yt import units as u
-import plotTools as myplot # some convenience plotting tools
+from plotting import plotTools as myplot # some convenience plotting tools
+
+from initial_conditions import ic_generator as ic
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -55,15 +57,21 @@ class simulation: # need a better name
         part_list.sort()
         self.part_list = part_list 
 
+
+        self._load_param_file()
         # load SN and SB files
+
         self._load_SN_data()
         self._load_SB_data()
         
         # load the flash.par parameter file
-        self.params = _load_param_file(self)
+#        self.params = _load_param_file(self)
 
         # compute (roughly) t at each checkpoint file
-        self.times = _get_ds_index()\
+
+        print self._get_ds_index()
+        print self.params['checkpointFileIntervalTime']
+        self.times = self._get_ds_index()\
                      * self.params['checkpointFileIntervalTime']
   
     def _get_ds_index(self):
@@ -72,13 +80,19 @@ class simulation: # need a better name
         known checkpoint files as an integer np array
         """
     
-        values = np.zeros(np.size(self.ds_list))
-        i = 0
-        for dsname in ds_list:
-            values[i] = int(dsname[-4:])
-            i = i + 1
+        if np.size(self.ds_list) == 0:
+            values = np.array([0.0])
+        else:
 
-        return values
+            values = np.zeros(np.size(self.ds_list))
+            i = 0
+            for dsname in self.ds_list:
+                values[i] = int(dsname[-4:])
+                i = i + 1
+
+       
+
+        return np.array(values)
           
         
     def _load_param_file(self):
@@ -87,7 +101,7 @@ class simulation: # need a better name
         # os.system("cp " + param_file + " " + newfile)
 
         # convert = to : and save to new file
-        bash_command = "sed 's/=/:/g' " + param_file + " > " + newfile
+        bash_command = "sed 's/=/:/g' " + self.param_file + " > " + newfile
         os.system(bash_command)
 
         # remove all comments
@@ -111,6 +125,8 @@ class simulation: # need a better name
         """
         Damnit yt
         """
+
+       # print "in define param units function"
 
         length_unit = yt.units.cm
         temp_unit   = yt.units.Kelvin
@@ -148,19 +164,25 @@ class simulation: # need a better name
                       'density': density_unit,
                       'temperature': temp_unit,
                       'speed': speed_unit,
-                      'pressure': pressure_unit, 'time' : time_params}
+                      'pressure': pressure_unit, 'time' : time_unit}
+
+               
 
         for ptype in param_dict:
 
             # would like to do without this loop, but is really the only way
-            # to be safe with the exceptions... 
+            # to be safe with catching exception if param is not in flash.par
             for pname in param_dict[ptype]:
 
+     
                 try:
-                    self.params[pname] = np.float(self.params[pname])\
+                   self.params[pname] = np.float(self.params[pname])\
                                                              * units_dict[ptype]
+        
                 except KeyError:
+                    print "Did not find parameter: " + pname    
                     pass
+               
 
 
     def _load_SN_data(self):
@@ -193,12 +215,33 @@ class simulation: # need a better name
         self.SB = SB(sb_path, center = self.center)     
 
         
+    def get_initial_conditions(self, r=[]):
+        """
+        Wrapper to ic generator to get initial density, pressure,
+        and temperature profiles
+        """
+   
+        if np.size(r) == 0:
+            rmin = 0.0 
+            rmax = (2000.0 * u.kpc).convert_to_units('cm').value
+            r = np.linspace(rmin, rmax, 1.0E4)
+            
+       
         
-        
+        RM, rho, pressure, T =  ic.spherical_NFW(r, self.params['sim_TCloud'].value,
+                               self.params['sim_TAmbient'].value,
+                               self.params['sim_bParam'].value,
+                               #nself.params['mu'],
+                               self.params['sim_RL'].value,
+                               self.params['sim_rhoRL'].value,
+                               self.params['sim_rhoCenter'].value,
+                               self.params['sim_rho1rm'].value,
+                               self.params['sim_rho2rm'].value)
+                           
+        return RM*u.cm, r * u.cm, (rho * u.g / (u.cm**3)),\
+               pressure * (u.g/(u.cm*u.s*u.s)), T * u.Kelvin
 
-    def _define_param_units(self):
-
-        print "currently does nothing"
+    
     
     
 class SNSB:
@@ -300,7 +343,7 @@ class SN(SNSB):
 
     def plot_positions(self, draw_radius = False, **kwargs):
 
-        fig, ax = SNSB.plot_positions(kwargs)
+        fig, ax = SNSB.plot_positions(self,kwargs)
  
         if draw_radius:
 
@@ -335,7 +378,7 @@ class SB(SNSB):
     def _set_units(self):
         """
         """
-        SNSB._set_units()
+        SNSB._set_units(self)
         
         self.data['velx'] *= u.cm / u.s
         self.data['vely'] *= u.cm / u.s
