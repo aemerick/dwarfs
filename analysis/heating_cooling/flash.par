@@ -1,0 +1,438 @@
+# Runtime parameters for the Blob test proble
+# 
+# Parameters for initial model
+#
+# Ambient pressure and density
+# cloud density... cloud pressure fixed at ambient
+# wind velocity
+# initial cloud radius
+
+
+#------------------------------------------------
+#
+# Simulation Naming Parameters
+# 
+run_comment = "Full Physics Test"
+log_file = "dwarf_fullp.log"
+basenm = "dwarf_fullp_"
+#------------------------------------------------
+
+# -----------------------------------------------
+# 
+#                 IO
+# Simulation output intervals and restart:
+#      - Checkpoint files and plotfiles
+#      - final time, dt, cfl
+#
+restart = .true.
+checkpointFileNumber = 21 
+checkpointFileIntervalTime = 6.3115E13 # 2 Myr
+checkpointFileIntervalStep = 0
+
+particleFileNumber = 21
+particleFileInterValTime = 6.3115E13
+particleFileIntervalStep = 0
+
+plotfileIntervalTime = 0.
+plotfileIntervalStep = 0
+plotfileNumber = 0
+
+# Timing and CFL
+nend  = 1000000
+tmax  = 3.15576E16
+dtmin = 1.0E8
+dtmax = 1.0E13
+cfl   = 0.8
+eintSwitch = 1.0E-8 
+#------------------------------------------------
+# -----------------------------------------------
+#
+# General Gas Properties and Abundances
+#
+abundMetals = 0.1           # solar metallicity = 0.1
+muMetals    = 4.21676774992 # taken from Cloudy for solar metallicity
+amIonFrac   = 0.0           # ionized fraction
+
+# gas ratio of specific heats
+gamma = 1.66666667
+# -----------------------------------------------
+
+# -----------------------------------------------
+#
+# Heating and Cooling
+#
+useHeat = .true.
+
+# Metagalactic Background
+# 0 -> Haardt and Madau 2001 (H only, z = 0)
+# 1 -> Haardt and Madau 2012 (H only, z = 0)
+metagalactic = 1
+psuedoZ      = 0.0  # NOT YET WORKING... TO DO
+
+# heating turn off timestep limiter
+# should be small enough to not affect evolution too much, oof now
+dtThres = -10.0
+
+# Heating and cooling stuff
+# 
+statheat      = 8.5E-26
+peheat        = 8.5E-26
+
+# heating thresholds
+theatmin      = 0.E0
+theatmax      = 2.0E4
+
+# cooling thresholds
+tradmin       = 0.E0
+tradmax       = 1.E15 # .. always allow cooling ..
+
+# absoulte thresholds on temperature (cooling & heating floor/cieling)
+absTmin = 10.0
+absTmax = 1.0E9
+
+# electron number densities for cooling
+dradmin  = 0.0
+dradmax  = 1.0E6
+
+# scale height for UV heating from disk... STRATBOX LEFTOVER
+h_uv = 9.25703274E20
+
+# Non-uniform Heating switches
+stratifyHeat = .false. # exp decreasing in z (stratbox only)
+radialHeat   = .true.  # exp decreasing UV from sim center
+# -----------------------------------------------
+
+# -----------------------------------------------
+# 
+# Supernova and SB
+
+# 
+useParticles = .true. # for tracers
+useSN        = .true.
+useSNrandom  = .true.
+useSNTracer  = .false. # tracer particles
+
+# has to be true for SB to work
+# use this if there are no sinks, generates masless particles
+# as SB cneter
+useSB        = .true.
+useSBrandom  = .true.
+
+# turns on subgrid model for sink particles
+useSNsink    = .false.
+
+# turns on sings, has to be true for subgrid model
+# no sings = no subgrid
+usesinkparticles = .false.
+
+# min time step in SN to prevent overcooling
+SNminstep = 1.0E10 # 316 yr
+
+# call RNG at restart ? HUH?
+callRNG = -1
+
+# exponential scale radii in SNI and SNII explostions
+#erstar1 = 1.0028E21 # (320 pc)
+#erstar2 = 2.7771E20 # ( 90 pc)
+#erstarb = 2.7771E20 # ( 90 pc)
+erstar1 = 3.08567E20 # (100 pc) # made up value
+erstar2 = 9.257E19   # ( 30 pc) # made up values
+erstarb = 9.257E19   # ( 30 pc) # made up value
+
+# SN energy [ergs]
+exp_energy = 1.0003E51
+
+# SN initial radius [cm]
+r_init = 6.1714E18 # ( 2 pc)
+
+# SN maximum radius [cm]
+r_exp_max = 3.08567758E20 # 100 pc
+
+# number of mass shells, about 1 pc per shell
+nms = 100
+
+# mass ejecta per SN [g] 
+Mejc = 1.1934E35 # 60 Msun
+
+# always explode in center of zone
+SNMapToGrid = T
+
+# maximum and minimum number of SN per SB
+nsnmax = 40
+nsnmin = 7
+
+# maximum number of SB
+# this is set as hardcoded param in SB_data.F90
+SBmax = 400
+
+# give SB velocity of underlying grid zone
+sbTrackV = .true.
+
+# SB max velocity in cm/s, OB association speed in relation to ISM
+sbMaxV = 2.0E6 # 20 km/s
+
+# SB lifetime
+sblife = 1.26227704E15 # 40 Myr
+
+# times between SN
+# JMB09 SN rates, for 1 kpc box:
+# SN 1a rates: 6.58 / (Myr kpc^2) --- MW disk
+#  Dwarf SN1a rate: 
+#tsn1 = 4.79588541E12 # AE NEED TO ADJUST
+tsn1 = 1.12705714E15 # from Gato et. al. 2013 for Carina
+#tsn1  = 1.0E14                     # 35.7 Myr
+
+# total SN II rate is 27.4 / (Myr kpc^2)
+# clustered 0.6*27.4 = 16.4
+# unclustered SN II field rate : 11.0 / (Myr kpc^2)
+#tsn2 = 2.86881145E12 # AE NEED TO ADJUST
+tsn2 = 5.6352857143E14 # above divided by 2
+                       # 17.535 Myr
+#tsn2  = 3.0E13
+
+# SN II association rate : 16.4 / (14.79 SN/associations) / (Myr kpc^2)
+# 14.79 SN/association appropriate for nsmin = 7 and nsmax = 40
+#tsb = 2.84589595E13
+tsb = 5.635E15         # took above and multiplied by 10
+                       # 175.35 Myr
+#tsb = 1.0E14
+# number of SN per single timestep
+nsndt = 20
+
+# Non-uniform SN/SB switches
+stratifySN   = .false.
+radialSN     = .false. # stratbox leftover (radial disk)
+sphericalSN  = .true. # exp dec function of rad from sim center
+                      # truncated at dwarf match radius (sim_RM)
+#------------------------------------------------
+
+# -----------------------------------------------
+#
+# Particle Parameters
+#
+# calculate: (num of blocks) * pt_parPerSide/cpus for minimum num
+# needed. Mult by some factor to have wiggle room in creation + 
+# flow of particles
+pt_maxperproc = 200000
+
+# initial tracer particle field, lattice in each zone
+pt_parPerSide = 0
+
+# number of tracers per SN
+TracerPerSN   = 50000
+
+# inject tracer a physical distance from bubble edge
+MCTracerShellDis = 6.17E18 # 2.0 pc
+
+# inject tracer a physical distance from bubble edge
+MCTracerMaxRad   = 3.7E19 # 10.0 pc
+
+# unfreeze tracer particles if temperatre falls below
+ej_TempUnfreeze  = 1.0E5
+
+# time in s 
+ej_TimeUnfreeze  = 1.57785E14 # 5.0 Myr
+
+# unfreeze if a shock is detected
+ej_shockUnfreeze = T
+
+# 1 is factor of 2 in pressure - 9 is factor of 10
+sh_thres = 2.0
+
+# velocity or MCtracer, if F than MC tracers are assumed
+veltracer = F
+
+#/////////////////
+##       Sink unit parameters
+##/////////////////
+sink_density_thresh       = 1e-22 #9.07030747e-21 #5.9e-16  # 3.69e-17
+sink_accretion_radius     = 7.23205683e19
+sink_softening_radius     = 7.23205683e19
+sink_softening_type_gas   = "linear"
+sink_softening_type_sinks = "spline"
+sink_integrator           = "leapfrog"
+sink_subdt_factor         = 1.0e-2
+sink_dt_factor            = 0.5
+sink_merging              = .false.
+sink_convergingFlowCheck  = .true.
+sink_potentialMinCheck    = .true.
+sink_jeansCheck           = .true.
+sink_negativeEtotCheck    = .true.
+sink_GasAccretionChecks   = .true.
+#
+
+# -----------------------------------------------
+#
+# Bookeeping and details
+#
+pc_unitsBase = CGS
+sim_smallRho = 1.0E-40
+sim_smallP   = 1.0E-40
+smallp = 1.0E-40
+smlrho = 1.0E-40
+
+sim_nprofile = 2000 
+#------------------------------------------------
+
+
+# -----------------------------------------------
+# 
+# Simulation Physical Setup 
+#    - Dwarf and Environment
+#
+
+# ambient parameters taken from Gato et. al. 2013
+# assuming isothermal EOS and X = 1.0 (all H)
+# Ambient Medium (initial)
+sim_pAmbient   = 4.71968E-15
+sim_rhoAmbient = 7.72027154E-29
+sim_TAmbient   = 7.40914E5
+
+# Dwarf galaxy gas properties and size
+sim_TCloud    = 9.182E3 
+sim_rhoCloud  = 5.0E-22
+sim_rhoCenter = 8.3665E-24
+sim_rho1rm    = 6.22132940E-27 
+sim_rho2rm    = 7.7203030304E-29 
+sim_bParam    = 2.46854206E21 # 500 kpc !!
+sim_rhoRL     = 7.72027154E-29 #1.0E-4
+sim_RL        = 9.27267343E20
+sim_rScale    = 7.216E21
+sim_rInit     = 9.2570E20
+
+# Dwarf galaxy center
+#sim_xctr       = 2.0E21
+#sim_yctr       = 3.0857E21
+#sim_zctr       = 3.0857E21
+
+sim_xctr = 1.9285484884169945E21
+sim_yctr = 1.9285484884169945E21
+sim_zctr = 1.9285484884169945E21
+
+# type of density profile for Dwarf
+# # currently supported:
+# # 0 = constant
+# # 1 = isothermal  -> i.e. gravitating isothermal sphere
+# # 2 = NFW 
+# # 3 = ambient
+density_profile = 2
+sim_hSmoothing  = .False. # see wTaper
+zero_gravity    = .False. # set g = 0
+gconst = 0.0              # 
+gravity_factor = 1.0
+
+# ... old ... from Jana's method... can remove
+sim_wTaper    = 1.372509E19
+
+# Simulation Physical Setup
+#     - Wind Tunnel Parameters
+# wind start and wind end ramp
+inflow_type = 0 # 0 = constat inflow .... 1 = inflow with ramp up
+sim_windRampStart = 6.3558E12 # 2 Myr
+sim_windRampEnd   = 3.8229E14 # 11.1 Myr
+
+# velocity
+sim_windVel    = 0.0
+sim_flowSpeed  = 0.0
+sim_iFlow      = 0.0 # initial vx of ambient medium
+
+# -----------------------------------------------
+
+# -----------------------------------------------
+# 
+# Gravity
+#
+useGravity                     = .True.
+grav_boundary_type             = "isolated"
+
+# turn this off if only static gravity should be used
+updateGravity = .false.
+
+# from Juan's stuff
+onlyStaticGrav = .false
+# -----------------------------------------------
+
+# -----------------------------------------------
+# 
+# Grid and Simulation Domain Setup
+#
+geometry = cartesian
+# size of volume
+# # 1.6 kpc by .8 kpc by .8 kpc
+xmin = 0.
+ymin = 0.
+zmin = 0.
+#xmax = 1.2343E22 # 4.0 kpc
+#ymax = 6.1714E21 # 2.0 kpc
+#zmax = 6.1714E21 # 2.0 kpc
+xmax = 3.857097E21 # 1.25 kpc
+ymax = 3.857097E21
+zmax = 3.857097E21
+
+# number of blocks in each dimension
+# 
+nblockx = 20
+nblocky = 20
+nblockz = 20
+
+#
+# boundary conditions
+#
+xl_boundary_type = "outflow"
+xr_boundary_type = "outflow"
+
+yl_boundary_type = "outflow"
+yr_boundary_type = "outflow"
+
+zl_boundary_type = "outflow"
+zr_boundary_type = "outflow"
+# -----------------------------------------------
+
+# -----------------------------------------------
+# 
+# AMR - Refinement Parameters
+#
+
+# Use zoom refinement?
+RefineOnlyInZoomRegions = .false.
+RefinementZoomRegionFile  = "flash_zoom_regions.dat"
+
+# AMR parameters (refinement criteria)
+lrefine_max = 3
+refine_var_1 = "dens"
+refine_var_2 = "pres"
+# -----------------------------------------------
+
+######################################################################
+## -------------------------------------------------------------##
+###  SWITCHES SPECIFIC TO THE UNSPLIT HYDRO SOLVER               ##
+##       I. INTERPOLATION SCHEME:
+order           = 3      # Interpolation order (first/second/third/fifth order)
+slopeLimiter    = "mc"   # Slope limiters (minmod, mc, vanLeer, hybrid, limited)
+LimitedSlopeBeta= 1.     # Slope parameter for the "limited" slope by Toro
+charLimiting    = .true. # Characteristic limiting vs. Primitive limiting
+#
+use_avisc       = .false. # use artificial viscosity (originally for PPM)
+cvisc           = 0.1     # coefficient for artificial viscosity
+use_flattening  = .false. # use flattening (dissipative) (originally for PPM)
+use_steepening  = .false. # use contact steepening (originally for PPM)
+use_upwindTVD   = .false. # use upwind biased TVD slope for PPM (need nguard=6)
+#
+##       II. RIEMANN SOLVERS:
+RiemannSolver   = "Roe"       # Roe, HLL, HLLC, LLF, Marquina
+entropy         = .true.     # Entropy fix for the Roe solver
+#
+##       III. STRONG SHOCK HANDELING SCHEME:
+shockDetect     = .false.     # Shock Detect for numerical stability
+### -------------------------------------------------------------##
+#
+## ---------------------------------------------------------------##
+###  SWITCHES SPECIFIC TO THE SUPER-TIME-STEPPING (STS) ALGORITHM  ##
+###  NOTE: For details on using STS runtime parameters, please     ##
+###        refer to user's guide (Driver chapter).                 ##
+useSTS                  = .false.
+nstepTotalSTS           = 5
+nuSTS                   = 0.2
+### ---------------------------------------------------------------##
+#
+
