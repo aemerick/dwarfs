@@ -54,7 +54,7 @@ def spherical_NFW(rProf, sim_TCloud, sim_TAmbient, sim_bParam,
     temperature = pressure / (rho * kfactor)    
 
 
-    return rho, pressure, temperature
+    return RM,rho, pressure, temperature
     
                               
 def find_rm(cp2, cs2, rho2rm, cPhi, bparam, length):
