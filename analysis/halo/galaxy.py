@@ -7,8 +7,9 @@ galaxy
 
 import numpy as np
 import cgs as cgs # units list from Munier
+from scipy import interpolate as interp
 
-def NFW_mass(r, c = 12, M20 = 1.0E12*cgs.Msun, rho_crit=9.74E-30):
+def NFW_mass(r, c = 12, M200 = 1.0E12*cgs.Msun, rho_crit=9.74E-30):
     """
        Spherical NFW DM profile
 
@@ -32,7 +33,7 @@ def NFW_mass(r, c = 12, M20 = 1.0E12*cgs.Msun, rho_crit=9.74E-30):
 
     return M200 / fc * ( np.log(1.0+x) - x/(1.0+x))
 
-def halo_gas_ndensity(r,n0=(.46),rc=(.35)*cgs.kpc , beta=(.71), many_model=False):
+def halo_gas_ndensity(r,n0=(.46),rc=(.35)*cgs.kpc , beta=(.71), ambient=1.0E-5, many_model=False):
     """
         Beta gas density profile for galactic halo in hydrostatic equilibrium
 	Default fit from  Miller & Bregman 2013
@@ -50,9 +51,12 @@ def halo_gas_ndensity(r,n0=(.46),rc=(.35)*cgs.kpc , beta=(.71), many_model=False
 	beta : float, optional
 		density falloff exponent
 		default : .71 - .14
+    ambient : float, optional
+        ambient medium scaling used in Miller Bregman 2013 to account
+        for RPS of dwarf spheroidals at large radii. Default 1.0E-5
     """
     
-    f = lambda x: n0*(1.0 + (x/rc)**2)**(-3.0*beta/2.0)
+    f = lambda x: n0*(1.0 + (x/rc)**2)**(-3.0*beta/2.0) + ambient
         
     if many_model:
     # return several profiles over the range of Millerg and Bregman best 
@@ -84,9 +88,18 @@ def gato_ndensity(r, halo_type='isothermal'):
     data = np.genfromtxt(data_file, names=True)
     data['r'] = data['r'] * cgs.kpc # kpc to cm
     
-    f = interp1d(data['r'], data['n'], kind='cubic')
+    f = interp.interp1d(data['r'], data['n'], kind='cubic')
     
-    return f(r)
+    rmin = np.min(data['r'])
+    rmax = np.max(data['r'])
+    
+    n = np.zeros(np.size(r))
+    
+    n[(r>rmin)*(r < rmax)] = f(r[(r>rmin)*(r<rmax)])
+    n[r >=  rmax] = np.ones(np.size(n[r>=rmax]))*n[r<rmax][-1]
+    n[r <=  rmin] = np.ones(np.size(n[r<=rmin]))*n[r>rmin][0]
+    
+    return n
     
     
 def halo_gas_mass(r, n, mu = cgs.mu):
@@ -112,7 +125,8 @@ def halo_gas_mass(r, n, mu = cgs.mu):
     
     return dV*density / cgs.Msun
        
-def halo_gas_temperature(r, n, M = None, gamma = 1.6667, mu = cgs.mu):
+def halo_gas_temperature(r, M = None, n=None, gamma = 1.6667, mu = cgs.mu,
+                            **kwargs):
     """
         Gas temperature for galactic halo in hydrostatic equillibrium.
         Calculates the temperature profile given either the number density
@@ -130,9 +144,38 @@ def halo_gas_temperature(r, n, M = None, gamma = 1.6667, mu = cgs.mu):
             if n is 
     """
     
-    if M is None:
-        M = halo_gas_mass(r, n, mu)
+    if M == None:
+        M = NFW_mass(r, **kwargs)
     
+    if not n == None:
+        Mgas = halo_gas_mass(r, n)
+        if not (np.size(Mgas) == np.size(M)):
+            Mgas = np.append(Mgas, Mgas[-1]) * cgs.Msun
+        M = M + Mgas
+
+
     return gamma * cgs.G * mu * cgs.mp * M / (3.0 * r * cgs.kb)
         
+def kaufmann(model, field):
+    """
+    Loads kaufman data.
+    """
+    file_dir = "/home/emerick/Research/dwarfs/analysis/halo/jana/"   
+    data_file = file_dir + 'kaufmann' + model + ".dat"
+    
+    data = np.genfromtxt(data_file, names=True, skip_header=7)
+    
+    if field == 'density':
+        field_data = data['3d_ghdens'] * 0.009420003
+    
+    elif field == 'r':
+        field_data = data['radius']
+    
+    elif field == 'temperature':
+        field_data = data['gh_temp']
+    
+    return field_data
+    
+
+
 
