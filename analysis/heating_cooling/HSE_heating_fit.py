@@ -10,7 +10,7 @@ import dwarf   as dw
 
 # read in some flash.par file
 filename = 'flash.par'
-order    = 6
+order    = 8
 out_file = "HSE_heating_fit.dat"
 
 # 
@@ -23,9 +23,9 @@ r = r.value
 # compute the heating balance
 # gives gamma in erg/s
 gamma, n_gamma, nn_delta = heat.heating_balance(rho.value,T.value)
-gamma_z                  = heat.metagalactic()
+#gamma_z                  = heat.metagalactic()
                                                 
-gamma = gamma + gamma_z
+#gamma = gamma + gamma_z
 
 # select over ONLY the dwarf
 select = r<0.98*RM
@@ -39,7 +39,7 @@ p   = np.poly1d(pol)
 
 sum = 0
 i = 1
-pol_flip = reversed(pol)
+pol_flip = list(reversed(pol))
 for val in pol_flip:
     sum = sum + val * r**(i-1)
     i = i + 1
@@ -53,8 +53,14 @@ plt.legend(loc='best')
 plt.savefig('HSE_fit.png')
 plt.close()
 
-#print pol
+# plot the fractional difference
+diff = (p(r) - gamma)/gamma
+plt.plot(r,diff,label='Fractional difference',color='black')
+plt.savefig('HSE_fit_error.png')
+plt.close()
 
+#print pol
+print pol_flip
 # now write the output file
 f = open(out_file, 'w')
 for val in pol_flip:
@@ -62,3 +68,4 @@ for val in pol_flip:
     f.write("%14.14e\n"%(val))
 
 f.close()
+
