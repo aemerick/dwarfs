@@ -69,6 +69,47 @@ def halo_gas_ndensity(r,n0=(.46),rc=(.35)*cgs.kpc , beta=(.71), ambient=1.0E-5, 
     else:
         return f(r)
         
+
+#####
+## DO NOT HAVE PROPER FIT PARAMETERS FOR RHO_O, PHI_O OR A
+def gato_ndensity_analytic(r, a = 170.0*cgs.kpc, M=1.9E12*cgs.Msun,
+                     gamma=None, halo_type='isothermal',
+                     rho_o=1, phi_o=1, A=1, mu = cgs.mu):
+    """
+        returns the density of gas using the profile obtained 
+        by Gato et. al. using the truncated flat potential for 
+        the Milky way
+    """
+
+    if gamma == None:
+        if halo_tye == 'isothermal':
+            gamma = 1.0
+        elif halo_type == 'adiabatic':
+            gamma = 5.0/3.0
+        elif halo_type == 'cooling':
+            gamma = 1.33333333
+    
+
+    if gamma == 1.0:
+        rho = rho_o * np.exp(- (TF_potential(r) - phi_o)/A)
+
+    else:
+        rho = rho_o * ((1.0 - TF_potential(r) - phi_o) *\
+              (gamma-1)/(gamma*A))**(1.0/(gamma-1.0)))
+
+
+    return rho / (cgs.mp * mu)
+
+def TF_potential(r, M=1.9E12*cgs.Msun, a = 170.0*cgs.kpc):
+    """
+        Truncated flat dark matter potential. Default units are for 
+        MW fit used in Gato et. al. 2013 from Lux et. al. 2010 and
+        originally Wilkinson & Evans 1999
+    """
+
+    return (cgs.G*M/a) * np.log( ((r**2 + a**2)**0.5 + a) / r)
+
+
 def gato_ndensity(r, halo_type='isothermal'):
     """
         Cubic spline interpolation of digitized Fig. 8 from Gato et. al. 2013
