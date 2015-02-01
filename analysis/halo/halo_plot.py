@@ -47,6 +47,11 @@ ax1.plot(gal.kaufmann('01','r'), n['kaufmann01'], label = 'Kaufmann NFW',
 ax1.plot(gal.kaufmann('02','r'), n['kaufmann02'], label = 'Kaufmann Realistic',
                                            color = 'purple', lw=lw, ls='--')
 
+
+# minimum n out to 70 kpc from Grcevich & Putman 2009
+ax1.plot([1.0,70.0],[2.0E-4,2.0E-4], label='Grcevich & Putman 2009',
+                                color='green', lw=lw, ls='-')
+ax1.plot([1.0,70.0],[3.0E-4,3.0E-4],color='green', lw=lw, ls='-')
                                            
 ax1.semilogy()
 ax1.legend(loc='best')
