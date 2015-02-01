@@ -95,7 +95,7 @@ def gato_ndensity_analytic(r, a = 170.0*cgs.kpc, M=1.9E12*cgs.Msun,
 
     else:
         rho = rho_o * ((1.0 - TF_potential(r) - phi_o) *\
-              (gamma-1)/(gamma*A))**(1.0/(gamma-1.0)))
+              (gamma-1)/(gamma*A))**(1.0/(gamma-1.0))
 
 
     return rho / (cgs.mp * mu)
