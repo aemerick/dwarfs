@@ -319,6 +319,12 @@ class SNSB:
 
 
 class SN(SNSB):
+    """
+        Derived class of the supernova and superbubble feedback
+        class (SNSB). Contains functions specific to the supernova
+        feedback data.
+    """
+
  
     def __init__(self, file_path, center = np.zeros(3)):
 
@@ -365,6 +371,12 @@ class SN(SNSB):
             
 
 class SB(SNSB):
+    """
+       Derived class of supernova and superbubble feedback class.
+       This contains functions and things specifically for the 
+       superbubble data
+    """
+
 
     def __init__(self,file_path, center = np.zeros(3)):
         
@@ -420,6 +432,12 @@ class SB(SNSB):
 
 
 class dwarf:
+    """
+        This is an old class that is here for backwards compatability 
+        sakes until I update everything. The replacement will be the 
+        simulation class, which is not tied to a single output file,
+        but rather the simulation in the abstract.
+    """
 
     def __init__(self, ds, param_file, raw = True, rm=None):
         """
