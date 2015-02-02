@@ -7,22 +7,24 @@ def _CellVolume(field, data):
     return (data['dx'] * data['dy'] * data['dz']).convert_to_units('cm**3')
 
 def _gas_column_density(field,data):
-    print " ----- WARNING ----- "
-    print "Column calculated using horrible assumptions on\n"
-    print "composition and mean molecular weight"   
-    print " ----- ------ ------ "
-
     if data.has_field_parameter('dens'):
         density_name = 'dens'
     else:
         density_name = 'density'
 
-    mu = np.ones(np.size(data['dx']))
+    if data.has_field_parameter('temp'):
+        temperature_name = 'temp'
+    else:
+        temperature_name = 'temperature'
 
-    mu[data['Temperature'] < 1.0E4] = 1.21 # assume neutral
-    mu[data['Temperature'] > 1.0E4] = 0.61 # assume ionized
+    mu = np.ones(np.shape(data['dx'].value))
 
-    return data['dx'] * data[density_name] / (cgs.mp * mu)
+    mu[data[temperature_name].value < 1.0E4 ] *= 1.21 # assume neutral
+    mu[data[temperature_name].value > 1.0E4]  *= 0.61 # assume ionized
+
+    return data['dx'].convert_to_units('cm') *\
+           data[density_name].convert_to_units('g/cm**3') /\
+           (cgs.mp*yt.units.g * mu)
 
 
 # dictionary of field names
@@ -52,6 +54,14 @@ def add_field(field):
             definitions contained within the derived_fields.
             See derived_fields.fields for list of field names.
     """
+
+    if field == 'gas_column_density':
+        print " ----- WARNING ----- "
+        print "Column calculated using horrible assumptions on"
+        print "composition and mean molecular weight"
+        print " ----- ------ ------ "
+
+
 
     yt.add_field(field, function = function_dict[field],
                         display_name = display_name_dict[field],
