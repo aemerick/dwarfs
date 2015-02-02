@@ -60,8 +60,8 @@ class dwarf_orbit:
         self.x = x
         self.v = v
 
-        self.r  = np.sqrt(np.sum(x**2, axis=-1))
-        self.vr = np.sqrt(np.sum(v**2, axis=-1))
+        self.r  = np.sqrt(np.sum(x**2, axis=-1)).flatten()
+        self.vr = np.sqrt(np.sum(v**2, axis=-1)).flatten()
 
     def calculate_density(self,density_type="MB13_adj", mu=cgs.mu, **kwargs):
         """
@@ -106,7 +106,7 @@ class dwarf_orbit:
         """
    
         if T_type == 'NFW':
-            T = gal.halo_gas_temperature(self.r, kwargs)
+            T = gal.halo_gas_temperature(self.r, **kwargs)
         elif T_type == 'Kaufmann_realistic':
             T = gal.kaufmann('02', 'temperature')
 
