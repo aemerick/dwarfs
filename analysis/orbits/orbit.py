@@ -19,18 +19,19 @@ class dwarf_orbit:
             sets initial position in cartesian coordinates
             as a numpy array (x0)
         """
-            self.x0 = np.array(x0)
+        self.x0 = np.array(x0)
 
     def set_v0(self, v0):
         """
             initial cartesian velocity as a 3D numpy array
         """
-            self.v0 = np.array(v0)
+        self.v0 = np.array(v0)
 
     def calculate_initials(self):
         print "does nothing... calculate x0 and v0 from obs"
 
-    def integrate_orbit(self, t_end = 500.0*cgs.Myr, dt=1.0E9, **kwargs):
+    def integrate_orbit(self, t_end = 500.0*cgs.Myr, dt=1.0E9,
+                        verbose=True, **kwargs):
         """
             integrate the orbit given some dt and nsteps
             in order for this to work, must have x0, v0, and 
@@ -43,14 +44,16 @@ class dwarf_orbit:
             dt    : float, optional
                 Timestep size in seconds. Default around 0.1 kyr
         """
-        nsteps = np.ceil(t_end / dt)
+        nsteps = int(np.ceil(t_end / dt))
 
         print "integrating orbit for " + self.name
         print "for %5.4e Myr"%(t_end/cgs.Myr)
         print "Using %2.2e timesteps at dt = %5.4e"%(nsteps,dt)
 
+    
+
         t,x,v = leapfrog_integrate(self.acceleration_function, self.x0,
-                           self.v0, dt, nsteps, kwargs)
+                           self.v0, dt, nsteps, verbose, kwargs)
 
 
         self.t = t
@@ -60,7 +63,7 @@ class dwarf_orbit:
         self.r  = np.sqrt(np.sum(x**2, axis=-1))
         self.vr = np.sqrt(np.sum(v**2, axis=-1))
 
-    def calculate_density(self,density_type="MB13_adj", mu=cgs.mu **kwargs):
+    def calculate_density(self,density_type="MB13_adj", mu=cgs.mu, **kwargs):
         """
             returns the number density and density assuming
             ionized primordial gas for the provided density type.
@@ -115,9 +118,9 @@ class dwarf_orbit:
             must be a function with variables t and x. This will
             be supplied to leapfrog integrator.
         """
-        self.acceleration = function
+        self.acceleration_function = function
     
-    def write_out_wind(self, filename=self.name + "_wind.dat"):
+    def write_out_wind(self, filename = None):
         """
         Write out the integrated orbital time, radius, total velocity,
         number density, density, and temperature at all timesteps for 
@@ -129,6 +132,9 @@ class dwarf_orbit:
         filename: string, optional
             Name of output file. Default to object name with "_wind.dat" ext
         """
+        if filename == None:
+            filename = self.name + "_wind.dat"
+
         ok_to_write = True
         
         if not hasattr(self, 'n'):
@@ -145,7 +151,7 @@ class dwarf_orbit:
             fmt = "%8.8E %8.8E %8.8E %8.8E %8.8E %8.8E\n"
             for i in np.arange(np.size(r)):
                 f.write(fmt%( self.t[i],   self.r[i], self.vr[i],
-                              self.n[i], self.rho[i], self.T[i])
+                              self.n[i], self.rho[i], self.T[i]))
             f.close()
         
 def spherical_NFW(t, xyz, c=12, M200=1.0E12*cgs.Msun , rho_crit = 9.74E-30):
@@ -163,7 +169,8 @@ def spherical_NFW(t, xyz, c=12, M200=1.0E12*cgs.Msun , rho_crit = 9.74E-30):
 
     return val[:,np.newaxis] * xyz * cgs.G * M200
 
-def leapfrog_integrate(acceleration_func, x0, v0, dt, nsteps, t1=0., args=()):
+def leapfrog_integrate(acceleration_func, x0, v0, dt, nsteps, 
+                       verbose=False, t1=0.0,args=()):
     """ A simple implementation of Leapfrog integration 
     
     Parameters
@@ -211,18 +218,209 @@ def leapfrog_integrate(acceleration_func, x0, v0, dt, nsteps, t1=0., args=()):
     # velocity at 1/2 step 
     v_iminus1_2 = v0 + acc(t1, x0)*dt/2.
     x_iminus1 = x0.copy()
-    for i in range(1,nsteps):
-        t[i] = t[i-1] + dt
-        x_i = x_iminus1 + v_iminus1_2*dt # full step
-        a_i = acc(t[i], x_i)
-        v_i = v_iminus1_2 + a_i*dt/2. # half step
-        v_iplus1_2 = v_i + a_i*dt/2. # half step
+
+
+
+    if verbose:
+        print "Entering integration loop"
+        for i in range(1,nsteps):
+            t[i] = t[i-1] + dt
+            x_i = x_iminus1 + v_iminus1_2*dt # full step
+            a_i = acc(t[i], x_i)
+            v_i = v_iminus1_2 + a_i*dt/2. # half step
+            v_iplus1_2 = v_i + a_i*dt/2. # half step
         
-        all_x[i] = x_i
-        all_v[i] = v_i
+            all_x[i] = x_i
+            all_v[i] = v_i
         
-        x_iminus1 = x_i
-        v_iminus1_2 = v_iplus1_2
+            x_iminus1 = x_i
+            v_iminus1_2 = v_iplus1_2
+
+        if i % 1E5 == 0.0: # print out progress
+            print "t = %4.2e, i = %4.4i"%(t,i)
+
+        print "Exiting integration loop. Finishing integration"
+    else: # to avoid looping over if statements for no reason
+        for i in range(1,nsteps):
+            t[i] = t[i-1] + dt
+            x_i = x_iminus1 + v_iminus1_2*dt # full step
+            a_i = acc(t[i], x_i)
+            v_i = v_iminus1_2 + a_i*dt/2. # half step
+            v_iplus1_2 = v_i + a_i*dt/2. # half step
+
+            all_x[i] = x_i
+            all_v[i] = v_i
+
+            x_iminus1 = x_i
+            v_iminus1_2 = v_iplus1_2
+    
+
     
     return t, all_x, all_v
+
+def gal_to_cartesian(l, b, d, xyz_sun=np.array([-8.0,0.0,0.0])*cgs.kpc):
+    """
+        Converts galactic longitude and latitude to 
+        galactocentric cartesian coordinates
+
+    Parameters
+    ----------
+    l : float
+        Galactic longitude in degrees
+    b : float
+        Galactic latitude in degrees
+    d : float
+        Distance to object from sun in cm
+    xyz_sun : numpy array
+        Coordinates of sun in galactocentric cartesian
+    
+    Returns
+    -------
+    xyz : numpy array
+        3D numpy array containing x,y,z galactocentric cartisain coords
+    """
+
+    l *= np.pi / 180.0
+    b = (90.0 - b)*(np.pi / 180.0)
+    
+    # make life easier by taking sins and cosines and saving
+    cosl = np.cos(l) * np.sign(l)
+    cosb = np.cos(b) * np.sign(b)
+    sinb = np.sin(b)
+    sinl = np.sin(l)
+
+    # convert to heliocentric cartesian coordinates
+    x = (d * sinb * cosl)
+    y = (d * sinb * sinl)
+    z = (d * cosb       )
+ 
+    xyz = np.array([x,y,z])
+    # convert to galactocentric
+    xyz += xyz_sun
+
+
+
+    return xyz
+
+
+def convert_proper_motion(l, b, mu_l, mu_b, d, rv,
+                          lsr_vel = np.array([-10.0,5.25,7.17])*cgs.km,
+                          vc      = 237.0 * cgs.km):
+    """
+        Function converts proper motion measurements to 
+        galactocentric cartesian velocities.
+
+        Parameters
+        ----------
+        l : float
+            galactic longitude in degrees
+        b : float
+            galactic latitude in degrees
+        mu_l : float
+            proper motion in l in degrees per second
+        mu_b : float
+            proper motion in b in degrees per second
+        d    : float
+            heliocentric distance to object in cm
+        rv   : float
+            heliocentric radial velocity in cm/s
+        lsr_vel : numpy array, optional
+            LSR velocity of sun in cm/s. Default 11.1,12.24,7.25 km/s
+        vc : float, optional
+            circular velocity at position of sun in cm/s. Default 212 km/s
+    
+        Returns
+        --------
+        v_xyz : numpy array
+            3D array containing galactocentric cartesian velocities in 
+            cm/s       
+    """
+
+    l *= np.pi / 180.0
+    b = (90-b)*np.pi/180.0
+#    b = (90.0-b)*np.pi/180.0
+    mu_l = mu_l * np.pi / 180.0
+    mu_b = mu_b * np.pi / 180.0
+
+    # save sines and cosines for convenience
+    cosl = np.cos(l) * np.sign(l)
+    cosb = np.cos(b) * np.sign(b)
+    sinl = np.sin(l)
+    sinb = np.sin(b)
+
+    # find the heliocentric cartesian velocities
+    vx = cosl * sinb * rv - (d*sinl*sinb*mu_l) + (d*cosl*cosb*mu_b)
+    vy = sinl * sinb * rv + (d*sinb*cosl*mu_l) + (d*sinl*cosb*mu_b)
+    vz =        cosb * rv + (d*sinb*mu_b)
+
+    # now convert from heliocentric to galactocentric
+    v_xyz = np.array([vx,vy,vz])
+
+    print 'bfore change', v_xyz /cgs.km
+    v_xyz = v_xyz + lsr_vel
+    v_xyz[1] = v_xyz[1] + vc # add circular velocity in y
+
+    
+    return v_xyz
+
+
+class orbit_params:
+
+    known_orbits = {'Draco':{
+                          'l':86.3730,         # deg
+                          'b':34.7088,         # deg
+                          'd':82.4*cgs.kpc,    # +/- 5.8 kpc
+                          'e': 0.29,           # ellipticity
+                          'rv': -293.3*cgs.km, # +/- 1.0
+                          'references': ['Pryor et. al. 2015'],
+                          'mu_l' : -21.8 * cgs.mas / (100.0*cgs.yr), # +/-6.3
+                          'mu_b' : -50.1 * cgs.mas / (100.0*cgs.yr),  # +/-6.3
+                          'v_cyl' : np.array([27.0,89.0,-212.0])*cgs.km,
+                          'v_r'   : -98.5 *cgs.km, # +/- 2.6,
+                          'v_t'   : 210.0 *cgs.km, # +/- 25 
+                          }
+                    }
+
+    def __init__(self, name = None):
+        if name == None:
+            print "please choose a orbit from the following list"
+            print "use known_orbits.set_name function to choose"
+            self.list_known_orbits()
+
+        else:
+            
+            self.set_name(name)
+    
+    def set_name(self, name):
+        self.name = name
+
+        # save orbital parameter dict
+        self.params = orbit_params.known_orbits[name]
+
+        # give all of the important parameters their
+        # own variable
+        self.l    = self.params['l']
+        self.b    = self.params['b']
+        self.d    = self.params['d']
+        self.rv   = self.params['rv']
+        self.refs = self.params['references']
+        self.mu_l = self.params['mu_l']
+        self.mu_b = self.params['mu_b']
+
+        # get the galactocentric cartesian coordinates
+        self.xyz = gal_to_cartesian(self.l, self.b, self.d)
+
+        # get the galactocentric cartesian velocities
+        self.v_xyz = convert_proper_motion(self.l, self.b, 
+                                           self.mu_l, self.mu_b, 
+                                           self.d, self.rv)
+
+
+    def list_known_orbits(self):
+        print orbit_params.known_orbits.keys()
+
+    
+    
+
+
 
