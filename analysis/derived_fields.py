@@ -26,18 +26,42 @@ def _gas_column_density(field,data):
            data[density_name].convert_to_units('g/cm**3') /\
            (cgs.mp*yt.units.g * mu)
 
+def _gas_number_density(field,data):
+    if data.has_field_parameter('dens'):
+        density_name = 'dens'
+    else:
+        density_name = 'density'
+
+    if data.has_field_parameter('temp'):
+        temperature_name = 'temp'
+    else:
+        temperature_name = 'temperature'
+
+
+    mu = np.ones(np.shape(data[density_name].value))
+
+    mu[data[temperature_name].value < 1.0E4 ] *= 1.21 # assume neutral
+    mu[data[temperature_name].value > 1.0E4]  *= 0.61 # assume ionized
+
+    return data[density_name].convert_to_units('g/cm**3') /\
+           (cgs.mp*yt.units.g * mu)
+
+
 
 # dictionary of field names
 function_dict = {'CellVolume': _CellVolume,
-                 'gas_column_density': _gas_column_density}
+                 'gas_column_density': _gas_column_density,
+                 'gas_number_density': _gas_number_density,}
 
 # display name dictionary
-display_name_dict = {'CellVolume': r"\rm{cm}^{3}",
-                     'gas_column_density': r'\rm{cm}^{2}'}
+display_name_dict = {'CellVolume': r"Volume \rm{cm}^{3}",
+                     'gas_column_density': r'N$_{gas}$ \rm{cm}^{2}',
+                     'gas_number_density': r'n$_{gas}$ \rm{cm}^{3}'}
 
 # units dictionary
 units_dict = {'CellVolume': "cm**(-3)",
-              'gas_column_density': "cm**(-2)"}
+              'gas_column_density': "cm**(-2)",
+              'gas_number_density': "cm**(-3)"}
 
 # field names
 fields = function_dict.keys()
