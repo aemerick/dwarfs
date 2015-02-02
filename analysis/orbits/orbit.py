@@ -2,7 +2,7 @@ from __future__ import division
 
 import numpy as np
 import cgs   as cgs
-
+from halo import galaxy as gal
 
 class dwarf_orbit:
     """ 
@@ -30,7 +30,7 @@ class dwarf_orbit:
     def calculate_initials(self):
         print "does nothing... calculate x0 and v0 from obs"
 
-    def integrate_orbit(self, t_end = 500.0*cgs.Myr, dt=1.0E9,
+    def integrate_orbit(self, t_end = 1.0E11, dt=1.0E9,
                         verbose=True, **kwargs):
         """
             integrate the orbit given some dt and nsteps
@@ -76,18 +76,18 @@ class dwarf_orbit:
         """
 
         if density_type == 'MB13':
-            n = gal.halo_gas_ndensity(r,kwargs)
+            n = gal.halo_gas_ndensity(self.r,kwargs)
 
         elif density_type == 'MB13_adj':
-            n = gal.halo_gas_ndensity(r, n0=.46+.74, rc=(.35+.29)*cgs.kpc,
+            n = gal.halo_gas_ndensity(self.r, n0=.46+.74, rc=(.35+.29)*cgs.kpc,
                                         beta=.74-.14, ambient=0.0)
 
         elif density_type == 'Gato_isothermal':
-            n = gal.gato_ndensity(r,'isothermal')
+            n = gal.gato_ndensity(self.r,'isothermal')
         elif density_type == 'Gato_adiabatic':
-            n = gal.gato_ndensity(r,'adiabatic')
+            n = gal.gato_ndensity(self.r,'adiabatic')
         elif density_type == 'Gato_cooling':
-            n = gal.gato_ndensity(r,'cooling')
+            n = gal.gato_ndensity(self.r,'cooling')
         elif density_type == 'Kaufmann_realistic':
             n = gal.kaufmann('02', 'density')
 
@@ -106,7 +106,7 @@ class dwarf_orbit:
         """
    
         if T_type == 'NFW':
-            T = gal.halo_gas_temperature(r, kwargs)
+            T = gal.halo_gas_temperature(self.r, kwargs)
         elif T_type == 'Kaufmann_realistic':
             T = gal.kaufmann('02', 'temperature')
 
@@ -170,7 +170,7 @@ def spherical_NFW(t, xyz, c=12, M200=1.0E12*cgs.Msun , rho_crit = 9.74E-30):
     return val[:,np.newaxis] * xyz * cgs.G * M200
 
 def leapfrog_integrate(acceleration_func, x0, v0, dt, nsteps, 
-                       verbose=False, t1=0.0,args=()):
+                       verbose=True, t1=0.0,args=()):
     """ A simple implementation of Leapfrog integration 
     
     Parameters
