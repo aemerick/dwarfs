@@ -137,8 +137,8 @@ def gato_ndensity(r, halo_type='isothermal'):
     n = np.zeros(np.size(r))
     
     n[(r>rmin)*(r < rmax)] = f(r[(r>rmin)*(r<rmax)])
-    n[r >=  rmax] = np.ones(np.size(n[r>=rmax]))*n[r<rmax][-1]
-    n[r <=  rmin] = np.ones(np.size(n[r<=rmin]))*n[r>rmin][0]
+    n[r >=  rmax] = None #np.ones(np.size(n[r>=rmax]))*n[r<rmax][-1]
+    n[r <=  rmin] = None #np.ones(np.size(n[r<=rmin]))*n[r>rmin][0]
     
     return n
     
@@ -184,16 +184,23 @@ def halo_gas_temperature(r, M = None, n=None, gamma = 1.6667, mu = cgs.mu,
             enclosed mass at each r. Used in place of calculated version
             if n is 
     """
-    
+    print M
     if M == None:
         M = NFW_mass(r, **kwargs)
     
+
     if not n == None:
         Mgas = halo_gas_mass(r, n)
         if not (np.size(Mgas) == np.size(M)):
             Mgas = np.append(Mgas, Mgas[-1]) * cgs.Msun
         M = M + Mgas
 
+    print gamma
+    print cgs.G
+    print mu
+    print M
+    print r
+    print cgs.kb
 
     return gamma * cgs.G * mu * cgs.mp * M / (3.0 * r * cgs.kb)
         
