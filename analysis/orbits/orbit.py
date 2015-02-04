@@ -30,7 +30,7 @@ class dwarf_orbit:
     def calculate_initials(self):
         print "does nothing... calculate x0 and v0 from obs"
 
-    def integrate_orbit(self, t_end = 1.0E11, dt=1.0E9,
+    def integrate_orbit(self, t_end = 1.0E17, dt=1.0E11,
                         verbose=True, **kwargs):
         """
             integrate the orbit given some dt and nsteps
@@ -146,10 +146,13 @@ class dwarf_orbit:
 
 
         if ok_to_write:
-            f = f.open(filename)
-        
+            header = "#t       r       v        n        rho     T\n"
+
+
+            f = open(filename,'w')
+            f.write(header)
             fmt = "%8.8E %8.8E %8.8E %8.8E %8.8E %8.8E\n"
-            for i in np.arange(np.size(r)):
+            for i in np.arange(np.size(self.r)):
                 f.write(fmt%( self.t[i],   self.r[i], self.vr[i],
                               self.n[i], self.rho[i], self.T[i]))
             f.close()
@@ -162,12 +165,15 @@ def spherical_NFW(t, xyz, c=12, M200=1.0E12*cgs.Msun , rho_crit = 9.74E-30):
 
     R200 = (3.0 * M200 / (4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
 #    fc   = np.log(1.0 + c) - c/(1.0+c)    
-    rscale = c / R200
+    rscale = R200 / c
+
+#    print R200 / cgs.kpc
+#    print rscale / cgs.kpc
 
     r = np.sqrt(np.sum(xyz**2, axis=-1))
-    val = np.log( r/rscale + 1.0)/r**1.5 - 1.0/(r**2.5 + rscale)
+    val = np.log( r/rscale + 1.0)/r**3.0 - 1.0/((rscale*r**2)*(r/rscale + 1.0))
 
-    return val[:,np.newaxis] * xyz * cgs.G * M200
+    return -1.0* val[:,np.newaxis] * xyz * cgs.G * M200
 
 def leapfrog_integrate(acceleration_func, x0, v0, dt, nsteps, 
                        verbose=True, t1=0.0,args=()):
@@ -258,7 +264,7 @@ def leapfrog_integrate(acceleration_func, x0, v0, dt, nsteps,
     
     return t, all_x, all_v
 
-def gal_to_cartesian(l, b, d, xyz_sun=np.array([-8.0,0.0,0.0])*cgs.kpc):
+def gal_to_cartesian(l, b, d, xyz_sun=np.array([8.0,0.0,0.0])*cgs.kpc):
     """
         Converts galactic longitude and latitude to 
         galactocentric cartesian coordinates
@@ -281,18 +287,18 @@ def gal_to_cartesian(l, b, d, xyz_sun=np.array([-8.0,0.0,0.0])*cgs.kpc):
     """
 
     l *= np.pi / 180.0
-    b = (90.0 - b)*(np.pi / 180.0)
+    b = (b)*(np.pi / 180.0)
     
     # make life easier by taking sins and cosines and saving
-    cosl = np.cos(l) * np.sign(l)
-    cosb = np.cos(b) * np.sign(b)
+    cosl = np.cos(l)# * np.sign(l)
+    cosb = np.cos(b)# * np.sign(b)
     sinb = np.sin(b)
     sinl = np.sin(l)
 
     # convert to heliocentric cartesian coordinates
-    x = (d * sinb * cosl)
-    y = (d * sinb * sinl)
-    z = (d * cosb       )
+    x = (d * cosb * cosl)
+    y = (d * cosb * sinl)
+    z = (d * sinb       )
  
     xyz = np.array([x,y,z])
     # convert to galactocentric
@@ -337,21 +343,28 @@ def convert_proper_motion(l, b, mu_l, mu_b, d, rv,
     """
 
     l *= np.pi / 180.0
-    b = (90-b)*np.pi/180.0
+    b = (b)*np.pi/180.0
 #    b = (90.0-b)*np.pi/180.0
     mu_l = mu_l * np.pi / 180.0
     mu_b = mu_b * np.pi / 180.0
 
     # save sines and cosines for convenience
-    cosl = np.cos(l) * np.sign(l)
-    cosb = np.cos(b) * np.sign(b)
+    cosl = np.cos(l)# * np.sign(l)
+    cosb = np.cos(b)# * np.sign(b)
     sinl = np.sin(l)
     sinb = np.sin(b)
 
     # find the heliocentric cartesian velocities
-    vx = cosl * sinb * rv - (d*sinl*sinb*mu_l) + (d*cosl*cosb*mu_b)
-    vy = sinl * sinb * rv + (d*sinb*cosl*mu_l) + (d*sinl*cosb*mu_b)
-    vz =        cosb * rv + (d*sinb*mu_b)
+    vx = cosb*cosl*rv + d*cosb*sinl*mu_l + d*cosl*sinb*mu_b
+    vy = cosb*sinl*rv - d*cosb*cosl*mu_l + d*sinl*cosb*mu_b
+    vz = sinb*rv      - d*cosb*mu_b
+
+
+    #vx = cosl * sinb * rv - (d*sinl*sinb*mu_l) + (d*cosl*cosb*mu_b)
+    #vy = sinl * sinb * rv + (d*sinb*cosl*mu_l) + (d*sinl*cosb*mu_b)
+    #vz =        cosb * rv + (d*sinb*mu_b)
+
+    
 
     # now convert from heliocentric to galactocentric
     v_xyz = np.array([vx,vy,vz])
@@ -373,8 +386,8 @@ class orbit_params:
                           'e': 0.29,           # ellipticity
                           'rv': -293.3*cgs.km, # +/- 1.0
                           'references': ['Pryor et. al. 2015'],
-                          'mu_l' : -21.8 * cgs.mas / (100.0*cgs.yr), # +/-6.3
-                          'mu_b' : -50.1 * cgs.mas / (100.0*cgs.yr),  # +/-6.3
+                          'mu_l' : -23.1 * cgs.mas / (100.0*cgs.yr), # +/-6.3
+                          'mu_b' : -16.3 * cgs.mas / (100.0*cgs.yr),  # +/-6.3
                           'v_cyl' : np.array([27.0,89.0,-212.0])*cgs.km,
                           'v_r'   : -98.5 *cgs.km, # +/- 2.6,
                           'v_t'   : 210.0 *cgs.km, # +/- 25 
@@ -415,6 +428,8 @@ class orbit_params:
                                            self.mu_l, self.mu_b, 
                                            self.d, self.rv)
 
+
+        
 
     def list_known_orbits(self):
         print orbit_params.known_orbits.keys()
