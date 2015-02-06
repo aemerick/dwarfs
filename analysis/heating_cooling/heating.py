@@ -45,7 +45,13 @@ def diffuse_UV(r, r_uv = 150.0*cgs.pc, pe_heat=2.0E-26):
     """
     
     return pe_heat * np.exp(- r / r_uv)
-    
+
+def IIK_2007(T, Gamma=2.0E-26):
+   """
+   
+   """
+   return Gamma
+   
 def lower_bound_heating(r, T, T_heat_min=0.0, T_heat_max=2.0E4, **kwargs):
     """
        The lower bound on the possible heating in the dwarf galaxy.
@@ -62,6 +68,9 @@ def lower_bound_heating(r, T, T_heat_min=0.0, T_heat_max=2.0E4, **kwargs):
            Heat for T < T_heat_max. Default 2.0E4 K
            
     """
+    if r == 0.0:
+       r = np.zeros(np.shape(T))
+    
     total_rate = np.zeros(np.shape(T))
     if np.size(T) > 1:
         select = (T > T_heat_min) * (T < T_heat_max)    

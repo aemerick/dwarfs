@@ -65,11 +65,14 @@ def radloss(temperatures):
 
     if np.size(temperatures) > 1:
         i = 0
-        radloss = np.zeros(np.size(temperatures))
-        for T in temperatures:
-            loss = _DM(T)
-            radloss[i] = loss
-            i = i + 1
+        radloss = np.zeros(np.shape(temperatures))
+        
+        imax, jmax = np.shape(temperatures)
+        
+        for i in np.arange(imax):
+            for j in np.arange(jmax):
+                loss = _DM(temperatures[i][j])
+                radloss[i][j] = loss
     else:
         radloss = _DM(temperatures)
 
@@ -85,4 +88,13 @@ def timescale(T, n, gamma = 1.66666667):
 
     return (gamma - 1.0)**(-1.0) * k*T/(n * radloss(T))
     
-#def jana
+def IIK_2007(T, Gamma=2.0E-26):
+    """
+        Cooling curve used Inoue, Inutsuka & Koyama 2007, ApJL, 658, 99.
+        This is what J. Grcevich used to establish equillibrium in Proeteus
+        simulations of Leo T.
+         
+    """
+    
+    return Gamma*\
+        (1.0E7*np.exp(-1.184E5/(T + 1000.)) + 1.4E-2*T**(0.5)*np.exp(-92./T))
