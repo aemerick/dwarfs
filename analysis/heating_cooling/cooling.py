@@ -7,12 +7,7 @@ def radloss(temperatures):
     of 0.01
     """
 
-    i = 0
-    radloss = np.zeros(np.size(temperatures))
-
-    for T in temperatures:
-    
-
+    def _DM(T):
         if (T >= 1.70e4):
             if (T >= 5.62E5):
                 if (T >= 2.76E6):
@@ -64,10 +59,19 @@ def radloss(temperatures):
         if (T <= 1.e1):
             loss = 0.0E-28
 
+        return loss
 
-        radloss[i] = loss
-        i = i + 1
 
+
+    if np.size(temperatures) > 1:
+        i = 0
+        radloss = np.zeros(np.size(temperatures))
+        for T in temperatures:
+            loss = _DM(T)
+            radloss[i] = loss
+            i = i + 1
+    else:
+        radloss = _DM(temperatures)
 
 
     return radloss
@@ -80,3 +84,5 @@ def timescale(T, n, gamma = 1.66666667):
     k = 1.380658E-16 # erg / K
 
     return (gamma - 1.0)**(-1.0) * k*T/(n * radloss(T))
+    
+#def jana
