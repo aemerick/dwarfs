@@ -1,7 +1,58 @@
 import numpy as np
 
+def sw_dm(n,T, Tmin=6.0E4, Tmax=1.0E5):
+    """
+        Smoothly combining sarazin and white and dalgarno and mccray.
+        Above 10E5 -> Sarazin and white. Below, Dalgarno.
+    """
 
-def radloss(temperatures):
+    SW =  sarazin_white(n,T)
+    DM =  radloss(n,T)
+
+    
+
+    if np.size(SW) == 1:
+        if (T < Tmax) and (T > Tmin):
+            f = (T - Tmin)/(Tmax - Tmin)
+            cooling = f * SW + (1-f)*DM
+        elif (T >= Tmax):
+            cooling = SW
+        else:
+            cooling = DM
+    
+        return cooling
+
+    else:
+        cooling = np.zeros(np.shape(T))
+
+        f = (T - Tmin) / (Tmax - Tmin)
+
+        f[f>1.] = 1.0
+        f[f<0.] = 0.0
+        cooling = f * SW + (1.0-f)*DM
+        
+        return cooling        
+
+def sarazin_white(n, T):
+    """
+        Returns equation 27 in Sarazin and White 1987. This 
+        is really only valid at 10**5 to 10**8 K
+
+    Parameters:
+    n : array
+        Array of number densities (not used here... kept only for
+        formatting)
+    T : array
+        Temperatures        
+    """
+
+    return 1.0E-22 *\
+             4.700             * np.exp(-(T/3.5E5)**(4.5)) +\
+             0.313   * T**(0.08) * np.exp(-(T/3.0E6)**(4.4)) +\
+             6.420   * T**(-0.2) * np.exp(-(T/2.1E6)**(4.0)) +\
+             4.39E-2 * T**(0.35)
+
+def radloss(n,temperatures):
     """
     Dalgarno and McCray cooling curve with ionization fraction 
     of 0.01
@@ -79,7 +130,7 @@ def radloss(temperatures):
 
     return radloss
             
-def timescale(T, n, gamma = 1.66666667):
+def timescale(n, T, gamma = 1.66666667):
     """
     returns the cooling timescale using radloss function
     """
@@ -88,13 +139,32 @@ def timescale(T, n, gamma = 1.66666667):
 
     return (gamma - 1.0)**(-1.0) * k*T/(n * radloss(T))
     
-def IIK_2007(T, Gamma=2.0E-26):
+def IIK_2007(n, T, Gamma=2.0E-26, mode='classic'):
     """
         Cooling curve used Inoue, Inutsuka & Koyama 2007, ApJL, 658, 99.
         This is what J. Grcevich used to establish equillibrium in Proeteus
         simulations of Leo T.
          
     """
-    
-    return Gamma*\
+
+    # L1 is curve from paper... not sure what L2 is... from J. Grcevich
+    L1 =  Gamma*\
         (1.0E7*np.exp(-1.184E5/(T + 1000.)) + 1.4E-2*T**(0.5)*np.exp(-92./T))
+    L2 = Gamma*\
+        (1.0E4*np.exp(-1.2E7/(T+1.0E5)) + 1.75E-4*T**(0.5)*np.exp(-9.2E4/T))
+
+    if mode == 'classic':
+        total = L1
+
+    elif mode == 'modified':
+        total = L1 + L2
+
+    elif mode == 'jana':
+        # getcool function from J. Grcevich's code         
+        mix1 = 0.5 * (1.0 + np.tanh((n-4.5-3.0)/5.2-4.0))
+        mix2 = 0.5 * (1.0 - np.tanh((n-4.5-3.0)/5.2-4.0))
+
+        total =  mix1*L1 + mix2*L2
+
+    return total
+
