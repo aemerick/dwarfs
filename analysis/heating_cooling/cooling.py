@@ -1,6 +1,6 @@
 import numpy as np
 
-def sw_dm(n,T, Tmin=6.0E4, Tmax=1.0E5):
+def sw_dm(n, T, smoothT=[6.0E4,1.0E5]):
     """
         Smoothly combining sarazin and white and dalgarno and mccray.
         Above 10E5 -> Sarazin and white. Below, Dalgarno.
@@ -8,10 +8,9 @@ def sw_dm(n,T, Tmin=6.0E4, Tmax=1.0E5):
 
     SW =  sarazin_white(n,T)
     DM =  radloss(n,T)
+    Tmin, Tmax = smoothT
 
-    
-
-    if np.size(SW) == 1:
+    if np.size(T) < 2:
         if (T < Tmax) and (T > Tmin):
             f = (T - Tmin)/(Tmax - Tmin)
             cooling = f * SW + (1-f)*DM

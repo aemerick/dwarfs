@@ -24,7 +24,7 @@ def heating_balance(density, T, mu = 1.0, number_density = False):
     return Gamma, ndens*Gamma, ndens*ndens*Lambda
 
 
-def metagalactic():
+def metagalactic(n=0.,T=0.):
     """
     """
 
@@ -46,13 +46,13 @@ def diffuse_UV(r, r_uv = 150.0*cgs.pc, pe_heat=2.0E-26):
     
     return pe_heat * np.exp(- r / r_uv)
 
-def IIK_2007(T, Gamma=2.0E-26):
+def IIK_2007(n, T, Gamma=2.0E-26):
    """
    
    """
    return Gamma
    
-def lower_bound_heating(r, T, T_heat_min=0.0, T_heat_max=2.0E4, **kwargs):
+def lower_bound_heating(r, n, T, T_heat_min=10.0, T_heat_max=2.0E4, **kwargs):
     """
        The lower bound on the possible heating in the dwarf galaxy.
        This is taken as the HM12 metagalactic background + the diffuse_UV
@@ -79,4 +79,6 @@ def lower_bound_heating(r, T, T_heat_min=0.0, T_heat_max=2.0E4, **kwargs):
        total_rate = diffuse_UV(r, **kwargs) + metagalactic()
     else:
        total_rate = 0.0
-    return total_rate
+
+
+    return np.array(total_rate)
