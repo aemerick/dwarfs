@@ -46,11 +46,13 @@ def sarazin_white(n, T):
         Temperatures        
     """
 
-    return 1.0E-22 *\
-             4.700             * np.exp(-(T/3.5E5)**(4.5)) +\
+    
+    L =      4.700               * np.exp(-(T/3.5E5)**(4.5)) +\
              0.313   * T**(0.08) * np.exp(-(T/3.0E6)**(4.4)) +\
              6.420   * T**(-0.2) * np.exp(-(T/2.1E6)**(4.0)) +\
-             4.39E-2 * T**(0.35)
+             4.39E-3 * T**(0.35)
+
+    return 1.0E-22 * L
 
 def radloss(n,temperatures):
     """
@@ -117,13 +119,17 @@ def radloss(n,temperatures):
     if np.size(temperatures) > 1:
         i = 0
         radloss = np.zeros(np.shape(temperatures))
-        
-        imax, jmax = np.shape(temperatures)
-        
-        for i in np.arange(imax):
-            for j in np.arange(jmax):
-                loss = _DM(temperatures[i][j])
-                radloss[i][j] = loss
+
+        try:        
+            imax, jmax = np.shape(temperatures)
+            
+            for i in np.arange(imax):
+                for j in np.arange(jmax):
+                    loss = _DM(temperatures[i][j])
+                    radloss[i][j] = loss
+        except:
+            for i in np.arange(np.size(temperatures)):
+                radloss[i] = _DM(temperatures[i])
     else:
         radloss = _DM(temperatures)
 
