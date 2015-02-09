@@ -1,5 +1,9 @@
 import numpy as np
 import cgs as cgs
+# this is mosty an exact copy of what is coded up in fortran in FLASH
+# this is done mostly ingorning the python-ness of python in order to 
+# make sure the logic flows perfectly as coded
+
 
 def spherical_NFW(rProf, sim_TCloud, sim_TAmbient, sim_bParam,
                   sim_RL, sim_rhoRL, sim_rhoCenter,
@@ -100,6 +104,40 @@ def find_rm_2(cp1, cs1, cs2, rho2rm, cPhi, bparam, length):
         ic = ic + 1
 
     return rmid
+
+def find_rm_gatto(rho_center, cPhi, bparam, Pcorona, kTdwarf):
+
+    eps  = 1E-7
+    nmax = 2000
+
+    rhi = 3.0856E22 
+    rlo = 0.0
+    ic  = 0
+
+
+
+    Pdwarf = 100.0*Pcorona
+
+    print "corona dwarf", Pcorona, Pdwarf
+  
+    while ((( np.abs(Pdwarf - Pcorona)/Pcorona > eps) and (ic <= nmax))):
+
+        rmid   = 0.5 * (rhi + rlo) 
+
+        rhomid = rho_center * np.exp(- (cPhi)*(1.0-np.log(1.0 + rmid/bparam)/(rmid/bparam)))
+        Pdwarf = rhomid * kTdwarf
+
+        if ((Pdwarf-Pcorona) > 0.0 ):
+           rlo = rmid
+        else:
+           rhi = rmid
+    
+        ic = ic + 1
+
+
+
+    return rmid
+
 
 
 def find_rm(cp2, cs2, rho2rm, cPhi, bparam, length):
