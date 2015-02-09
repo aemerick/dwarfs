@@ -4,13 +4,12 @@ from scipy import interpolate as interp
 from heating_cooling import cooling as cool
 from heating_cooling import heating as heat
 
-nmin = 1.0E-10
+nmin = 1.0E-6
 nmax = 100.0
-n = np.logspace(np.log10(nmin), np.log10(nmax), 1.0E4)
-T = find_equilibrium(n,cooling_func=cool.IIK_2007,
-                       heating_func=heat.IIK_2007,cf_kwargs={'mode':'modified'})
-#T= find_equilibrium(n,cooling_func=cool.sw_dm,
-#                            heating_func=heat.metagalactic)
+n = np.logspace(np.log10(nmin), np.log10(nmax), 5.0E4)
+#T = find_equilibrium(n,cooling_func=cool.IIK_2007,
+#                       heating_func=heat.IIK_2007)
+T= find_equilibrium(n,cooling_func=cool.sw_dm, heating_func=heat.metagalactic)
 
 T = T[np.logical_not(np.isnan(T))]
 n = n[np.logical_not(np.isnan(T))]
@@ -29,8 +28,8 @@ Tsample = np.logspace(np.log10(np.min(T)),np.log10(np.max(T)),1.0E4)
 
 pressure_eq(n_spline(Tsample),Tsample,P_spline(Tsample),filename='sw_dm_equilibrium_vals.dat')
 
-plt.scatter(T,n)
-plt.plot(Tsample,n_spline(Tsample))
+plt.scatter(T,n*T)
+#plt.plot(n_spline(Tsample),n_spline(Tsample)*Tsample)
 #Tfun = np.logspace(np.log10(np.min(T)),np.log10(np.max(T)),1000)
 #vals = function(Tfun)
 

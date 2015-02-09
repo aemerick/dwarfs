@@ -1,4 +1,4 @@
-import nupmy as np
+import numpy as np
 from n_T_balance import * #ew
 import matplotlib.pyplot as plt
 lw = 1.75
@@ -15,7 +15,8 @@ T_equil2 = find_equilibrium(n,cooling_func=cool.IIK_2007,
                               heating_func=heat.IIK_2007, 
                               cf_kwargs={'mode':'jana'})
 
-T_equil3 = find_equilibrium(n,cooling_func=cool.sw_dm,heating_func=heat.metagalactic)
+T_equil3 = find_equilibrium(n,cooling_func=cool.sw_dm,
+                            heating_func=heat.metagalactic)
 
 fig = plt.figure(figsize=[18,6])
 ax1 = plt.subplot(131)
@@ -67,3 +68,8 @@ plt.savefig('nT_balance.png')
 
 plt.close()
 
+##############################3
+# Save the eq to files
+
+
+pressure_eq(n, T_equil3, n*T_equil3, filename='sw_dm_equilibrium_vals.dat')

@@ -60,7 +60,8 @@ def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
         c = R200 / r_s
 
 
-    print "c = ", c, "R200 = ", R200/cgs.kpc, "r_s = ", r_s 
+    print "c = ", c, "R200 = ", R200, "r_s = ", r_s 
+    print "R200 = ", R200/cgs.kpc, " kpc -- r_s = ", r_s/cgs.pc, " pc"
     
     # scale density for the DM halo
     rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
@@ -104,7 +105,7 @@ def plot_profile(r, profile, filename=None, persist=False,**kwargs):
 
 
 r = np.logspace(-2,3.5,1000.0)*cgs.pc
-fig, ax1, rho = plot_profile(r,'Isothermal NFW',persist=True,c=30.0)
+fig, ax1, rho = plot_profile(r,'Isothermal NFW',persist=True,c=21.5)
 
 Tcorona = 1.8E6
 rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
