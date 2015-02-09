@@ -3,6 +3,7 @@ from __future__ import division
 import numpy as np
 import cgs as cgs
 import matplotlib.pyplot as plt
+from ic_generator import find_rm_gatto as find_rm
 
 def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
     """
@@ -42,7 +43,8 @@ def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
     
     
 def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
-                          T = 1.0E4, n_o = 0.27,  mu = 1.31, rho_crit=9.74E-30):
+                          T = 1.0E4, n_o = 0.27,  mu = 1.31, rho_crit=9.74E-30,
+                          Pcorona=1.0):
     """
         The isothermal density profile for a gas in HSE with a 
         NFW DM halo. The default parameters are Sextans from
@@ -62,18 +64,26 @@ def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
 
     print "c = ", c, "R200 = ", R200, "r_s = ", r_s 
     print "R200 = ", R200/cgs.kpc, " kpc -- r_s = ", r_s/cgs.pc, " pc"
-    
+        
     # scale density for the DM halo
     rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
 
     # constant in the exponential
     C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu *cgs.mp/(cgs.kb*T)
 
+    print "pi, G, rho_s, r_s, mu, mp, kb, T"
+    print "params:", np.pi, cgs.G, rho_s, r_s, mu, cgs.mp, cgs.kb, T
+    print "C_NFW = ", C_NFW
     # central mass density 
     rho_o = n_o * cgs.mp * mu
     print "rho_o = ", rho_o, "M200 = ", M200
     # gas profile
-    rho = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r/r_s)/(r/r_s)))
+
+    rho[0]   = rho_o
+    rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
+
+    RM=    find_rm(rho_o, C_NFW, r_s, Pcorona, cgs.kb/(mu*cgs.mp)*T)
+    print "RM = ", RM, RM/cgs.pc
 
     return rho
 
@@ -102,14 +112,19 @@ def plot_profile(r, profile, filename=None, persist=False,**kwargs):
     else:
         plt.close()
 
-
-
-r = np.logspace(-2,3.5,1000.0)*cgs.pc
-fig, ax1, rho = plot_profile(r,'Isothermal NFW',persist=True,c=21.5)
-
 Tcorona = 1.8E6
 rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
 Pcorona = Tcorona * rho_corona * cgs.kb / (cgs.mp*cgs.mu)
+
+
+r = np.linspace(0.0,10**3.5,10000.0)*cgs.pc
+fig, ax1, rho = plot_profile(r,'Isothermal NFW',persist=True,c=21.5,Pcorona=Pcorona)
+print r[0], r[-1]
+
+
+#Tcorona = 1.8E6
+#rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
+#Pcorona = Tcorona * rho_corona * cgs.kb / (cgs.mp*cgs.mu)
 
 print 'rho ambient', rho_corona
 
