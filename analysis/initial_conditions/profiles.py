@@ -41,8 +41,8 @@ def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
     
     
     
-def NFW_isothermal_gas(r, r_s=800.0*cgs.pc, c=None, M200=2.0E7*cgs.Msun,
-                          T = 1.0E4, n_o = 0.27,  mu = 1.3, rho_crit=9.74E-30):
+def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
+                          T = 1.0E4, n_o = 0.27,  mu = 1.31, rho_crit=9.74E-30):
     """
         The isothermal density profile for a gas in HSE with a 
         NFW DM halo. The default parameters are Sextans from
@@ -58,6 +58,9 @@ def NFW_isothermal_gas(r, r_s=800.0*cgs.pc, c=None, M200=2.0E7*cgs.Msun,
         r_s = R200 / c
     elif c == None:
         c = R200 / r_s
+
+
+    print "c = ", c, "R200 = ", R200/cgs.kpc, "r_s = ", r_s 
     
     # scale density for the DM halo
     rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
@@ -67,32 +70,59 @@ def NFW_isothermal_gas(r, r_s=800.0*cgs.pc, c=None, M200=2.0E7*cgs.Msun,
 
     # central mass density 
     rho_o = n_o * cgs.mp * mu
-
+    print "rho_o = ", rho_o, "M200 = ", M200
     # gas profile
     rho = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r/r_s)/(r/r_s)))
 
     return rho
 
 
-def plot_profile(r, profile, filename=None, **kwargs):
+def plot_profile(r, profile, filename=None, persist=False,**kwargs):
 
     function_dict = {'Isothermal NFW': NFW_isothermal_gas}
     
     rho = NFW_isothermal_gas(r, **kwargs)
 
-    plt.plot(r/cgs.pc, rho, label=profile,lw=1.75,color='black')
+    fig, ax1 = plt.subplots()
 
-    plt.semilogy()
-    plt.xlabel(r'r (pc)')
-    plt.ylabel(r'$\rho$ (g cm$^{-3}$)')
+    ax1.plot(r/cgs.pc, rho, label=profile,lw=1.75,color='black')
+
+    ax1.semilogy()
+    ax1.set_xlabel(r'r (pc)')
+    ax1.set_ylabel(r'$\rho$ (g cm$^{-3}$)')
     
     if filename == None:
         filename = profile + "_gas_profile.png"
 
     plt.savefig(filename)
-    plt.close()
+ 
+    if persist:
+        return fig, ax1, rho
+    else:
+        plt.close()
 
 
 
 r = np.logspace(-2,3.5,1000.0)*cgs.pc
-plot_profile(r,'Isothermal NFW')
+fig, ax1, rho = plot_profile(r,'Isothermal NFW',persist=True,c=30.0)
+
+Tcorona = 1.8E6
+rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
+Pcorona = Tcorona * rho_corona * cgs.kb / (cgs.mp*cgs.mu)
+
+print 'rho ambient', rho_corona
+
+ax2 = ax1.twinx()
+mu_dwarf = 1.31
+ax2.plot(ax1.get_xlim(),[Pcorona,Pcorona],label='Corona',color='red',lw=1.75,ls='--')
+P_dwarf = cgs.kb * rho/(cgs.mp*mu_dwarf) * 1.0E4
+
+ax2.plot(r/cgs.pc, P_dwarf,label='Dwarf',color='red',lw=1.75,ls='-')
+ax2.semilogy()
+ax2.set_ylabel('Pressure')
+for t1 in ax2.get_yticklabels():
+    t1.set_color('red')
+ax2.legend(loc='best')
+plt.savefig('rho_P.png')
+plt.close()
+
