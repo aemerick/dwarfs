@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 leo_T = icl.dwarf_dict['Leo_test']
 
 r = np.linspace(0.0,2000.0,10000)*cgs.pc
-leo_T.find_density_profile(r)
+leo_T.find_density_profile(r,type='NFW_isothermal_rmatch')
 
 fig, ax1 = plt.subplots()
 
