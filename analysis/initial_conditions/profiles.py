@@ -79,20 +79,71 @@ def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     print "rho_o = ", rho_o, "M200 = ", M200
     # gas profile
 
+    rho = np.zeros(np.size(r))
     rho[0]   = rho_o
     rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
 
     RM=    find_rm(rho_o, C_NFW, r_s, Pcorona, cgs.kb/(mu*cgs.mp)*T)
     print "RM = ", RM, RM/cgs.pc
 
-    return rho
+    return rho, RM
+
+
+def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
+                 T = 1.0E4, mu = 1.31, rho_crit=9.74E-30, Pcorona=1.0,
+                 rmatch=300.0*cgs.pc):
+    """
+        The isothermal density profile for a gas in HSE with a
+        NFW DM halo. The default parameters are Sextans from
+        Gatto et. al. 2013
+    """
+    # calculate the virial radius
+    R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
+
+    if r_s == None and c == None:
+        print "must give r_s (scale radius) OR c (concentration parameter)"
+        return 0.0
+    elif r_s == None:
+        r_s = R200 / c
+    elif c == None:
+        c = R200 / r_s
+
+    print "c = ", c, "R200 = ", R200, "r_s = ", r_s
+    print "R200 = ", R200/cgs.kpc, " kpc -- r_s = ", r_s/cgs.pc, " pc"
+
+    # scale density for the DM halo
+    rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
+
+    # constant in the exponential
+    C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu *cgs.mp/(cgs.kb*T)
+
+    print "pi, G, rho_s, r_s, mu, mp, kb, T"
+    print "params:", np.pi, cgs.G, rho_s, r_s, mu, cgs.mp, cgs.kb, T
+    print "C_NFW = ", C_NFW
+    # central mass density 
+    n_o = (Pcorona/cgs.kb) / T
+    n_o = n_o * np.exp(C_NFW * (1.0 - np.log(1.0+rmatch/r_s)/(rmatch/r_s)))
+    rho_o = n_o * cgs.mp * mu
+    print "n_o   = ", n_o
+    print "rho_o = ", rho_o, "M200 = ", M200
+    # gas profile
+
+    rho = np.zeros(np.size(r))
+    rho[0]   = rho_o
+    rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
+
+#    RM=    find_rm(rho_o, C_NFW, r_s, Pcorona, cgs.kb/(mu*cgs.mp)*T)
+#    print "RM = ", RM, RM/cgs.pc
+
+    RM = rmatch
+    return rho, RM
 
 
 def plot_profile(r, profile, filename=None, persist=False,**kwargs):
 
     function_dict = {'Isothermal NFW': NFW_isothermal_gas}
     
-    rho = NFW_isothermal_gas(r, **kwargs)
+    rho, RM = NFW_isothermal_gas(r, **kwargs)
 
     fig, ax1 = plt.subplots()
 
