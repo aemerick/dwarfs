@@ -5,6 +5,7 @@ import cgs as cgs
 import matplotlib.pyplot as plt
 from ic_generator import find_rm_gatto as find_rm
 from scipy import optimize as opt
+from scipy import integrate
 
 def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
     """
@@ -140,7 +141,9 @@ def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     return rho, RM
 
 
-def solve_NFW(M_DM, r_DM, r_s, rho_crit = 9.74E-30):
+def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T, 
+              mu=1.31, mu_halo=0.6, T_halo=None,n_halo=None,
+              rho_crit = 9.74E-30):
     """
         Given some dark matter mass and a scaling parameter
         r_s, solve for the dark matter profile parameters
@@ -149,15 +152,47 @@ def solve_NFW(M_DM, r_DM, r_s, rho_crit = 9.74E-30):
     rho_s = M_DM/(4.0*np.pi*r_s**3) / (np.log(1.0+r_DM/r_s) - r_DM/(r_s+r_DM))
 
     solve_c = lambda c: (200.0/3.0)*c**3/(np.log(1.0+c)-c/(1.0+c)) *\
-                        (rho_s/rho_crit) - 1.0
+                        (rho_crit/rho_s) - 1.0
 
     c =  opt.bisect(solve_c, 1.0, 40.0)
 
     R200 = c*r_s
 
-    M200 = (4.0*np.pi/3.0)*rho_crit * R200**3
+    M200 = (4.0*np.pi/3.0)*200.0*rho_crit * R200**3
 
-    return c, r_s, M200
+    # now solve for the central gas density given M_HI at r_HI
+
+    C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu * cgs.mp /(cgs.kb*T)
+
+    def __integrand(r,C_NFW=C_NFW,r_s=r_s):
+        if (r>0):
+            val = np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
+        else:
+            val = 1.0
+        
+        val = 4.0*np.pi * r * r *val        
+  
+        return val
+
+    rho_o = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
+    
+    rho = lambda r: rho_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
+
+    n_o = rho_o / (mu * cgs.mp)
+
+    # now find the pressure equilibrium temperature and density of halo
+    n_gas_edge = rho(r_HI)/(cgs.mp*mu)
+
+    if (T_halo == None and n_halo == None):
+        print 'no halo paramaters provided for pressure eq'
+        return c,r_s,M200,n_o
+
+    elif (T_halo == None):
+        T_halo = n_gas_edge/n_halo * T
+    else:
+        n_halo     = n_gas_edge * T / T_halo
+    
+    return c, r_s, M200, n_o, T_halo, n_halo
 
 def plot_profile(r, profile, filename=None, persist=False,**kwargs):
 
