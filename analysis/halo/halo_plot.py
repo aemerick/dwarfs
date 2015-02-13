@@ -6,7 +6,7 @@ import cgs    as cgs # cgs unit conversions
 lw = 1.7
 # plot density and temperature profiles for 
 # things
-r = np.linspace(1.0, 400.0, 1000.0) * cgs.kpc
+r = np.linspace(1.0, 450.0, 1000.0) * cgs.kpc
 
 n = {'miller': gal.halo_gas_ndensity(r),
      'miller_adj': gal.halo_gas_ndensity(r,n0=(0.46+0.74),rc=(0.35+0.29)*cgs.kpc,
@@ -52,6 +52,8 @@ ax1.plot(gal.kaufmann('02','r'), n['kaufmann02'], label = 'Kaufmann Realistic',
 ax1.plot([1.0,70.0],[2.0E-4,2.0E-4], label='Grcevich & Putman 2009',
                                 color='green', lw=lw, ls='-')
 ax1.plot([1.0,70.0],[3.0E-4,3.0E-4],color='green', lw=lw, ls='-')
+
+ax1.scatter([425,425,425],[4.6E-5,1.5E-4,4.5E-4])
                                            
 ax1.semilogy()
 ax1.legend(loc='best')
@@ -60,7 +62,7 @@ ax1.set_ylabel(r'n (cm$^{-3}$)')
 ax1.set_xlim(1.0,np.max(r))                                              
 ax2 = fig.add_subplot(122)
 
-
+ax2.scatter([425,425,425],[7.4E5,7.5E5,8.1E5])
 #ax2.plot(r, T['miller'], label = 'Miller and Bregman 2013', color ='black',lw=lw)
 
 #ax2.plot(r, T['isothermal'], label = "Gato Isothermal",
