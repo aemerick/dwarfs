@@ -4,6 +4,7 @@ import numpy as np
 import cgs as cgs
 import matplotlib.pyplot as plt
 from ic_generator import find_rm_gatto as find_rm
+from scipy import optimize as opt
 
 def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
     """
@@ -138,6 +139,25 @@ def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     RM = rmatch
     return rho, RM
 
+
+def solve_NFW(M_DM, r_DM, r_s, rho_crit = 9.74E-30):
+    """
+        Given some dark matter mass and a scaling parameter
+        r_s, solve for the dark matter profile parameters
+    """
+
+    rho_s = M_DM/(4.0*np.pi*r_s**3) / (np.log(1.0+r_DM/r_s) - r_DM/(r_s+r_DM))
+
+    solve_c = lambda c: (200.0/3.0)*c**3/(np.log(1.0+c)-c/(1.0+c)) *\
+                        (rho_s/rho_crit) - 1.0
+
+    c =  opt.bisect(solve_c, 1.0, 40.0)
+
+    R200 = c*r_s
+
+    M200 = (4.0*np.pi/3.0)*rho_crit * R200**3
+
+    return c, r_s, M200
 
 def plot_profile(r, profile, filename=None, persist=False,**kwargs):
 
