@@ -48,12 +48,19 @@ known_initial_conditions = {'Sextans_test':
                                 'M200'    : 2.0E7*cgs.Msun,
                                 'b'       : 170.0*cgs.pc,
                                 'n_o'     : 0.27, 'n_halo': 1.8E-4},
+
+                            'Leo_T' :
+                               {'T_dwarf' : 1.0E4, 'T_halo': 8.45955E5,
+                                'mu_halo' : 0.6  , 'mu_dwarf':1.31,
+                                'M200': 4.5166E8*cgs.Msun,
+                                'b'   : 800.0*cgs.pc,
+                                'n_o' : 0.084692897, 'n_halo': 6.0E-5},
                             # from jana's ic.F90
                             'Leo_test'    :
                                {'T_dwarf' : 9.182E3, 'T_halo': 7.40914E5,
                                 'mu_halo' : 0.6  , 'mu_dwarf': 1.31,
                                 'M200'    : 1.0E7*cgs.Msun,
-                                'b'       : 800.0*cgs.pc,
+                                'b'       : 500.0*cgs.pc,
                                 'rmatch'  : 300.0*cgs.pc,
 #                                'n_o'     : 1.0,
                                 'n_halo'  : 4.6E-5} 
