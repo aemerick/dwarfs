@@ -42,8 +42,63 @@ def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
 
     return rho_s / ( (r/r_s)*(1+r/r_s)**2)
     
+def burkert_DM(r, r_s, M200, rho_crit=9.74E-30):
+    """
+    Given the parameters, calculates the Burkert DM density
+    profile from Burkert 1995.
+ 
+    Parameters
+    ----------
+    r  : array
+        Radii to evaluate DM density profile. In cm
+    r_s : float
+        Burkert profile scaling radius. In cm
+    M200 : float
+        DM mass at R_200. Or, roughly the virial DM mass. In g
+    rho_crit : float, optional
+        Critical density of the universe in cgs. Default z = 0
+        9.74E-30 g /cm^-3
+
+    Returns :
+    rho : array
+        Array or float of dimensions of r. Dark matter density 
+        profile
+    """
+    R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
+
+    rho_o = (R200/r_s)**2 * (200.0/3.0) * rho_crit    
+
+    return rho_o/((1+r/r_s)*(1+(r/r_s)**2))
+
+
+def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
+                                rho_crit=9.74E-30):
+    """
+        Returns the gas density profile that is in HSE
+        with a Burkert DM potential.
+
+    """
+    R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
+
+    # central dark matter denisty
+    rho_DM = (R200/r_s)**2 * (200.0/3.0) * rho_crit
     
-    
+    rho_o = n_o * cgs.mp * mu
+
+    # constant in exponential from gas properties
+    C_gas = mu * cgs.mp / (cgs.kb * T)
+  
+    # constant in exp from DM profile
+    D_B = 4.0*np.pi*cgs.G*rho_DM*r_s**2
+
+    rho = rho_o * np.exp(- C_gas * D_B * (1.0 +\
+                              0.5*np.log(1.0 + (r/r_s)**2) + \
+                              np.arctan(r/r_s)/(r/r_s)))
+
+    return rho
+
+
+
 def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
                           T = 1.0E4, n_o = 0.27,  mu = 1.31, rho_crit=9.74E-30,
                           Pcorona=1.0):
@@ -141,6 +196,19 @@ def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     return rho, RM
 
 
+def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T,
+                  mu=1.31, mu_halo=0.6, T_halo=None, 
+                  n_halo = None, rho_crit=9.74E-30):
+
+    """ 
+       Given a few properties, solves for the constants
+       needed to set up gas in HSE with a burkert potential
+    """
+
+    
+
+    return 1.0 
+
 def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T, 
               mu=1.31, mu_halo=0.6, T_halo=None,n_halo=None,
               rho_crit = 9.74E-30):
@@ -164,6 +232,9 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
 
     C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu * cgs.mp /(cgs.kb*T)
 
+
+    # make the integrand to get the cumulative
+    # mass function, or M(r) = integrate( __integrand )
     def __integrand(r,C_NFW=C_NFW,r_s=r_s):
         if (r>0):
             val = np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
@@ -174,8 +245,10 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
   
         return val
 
+    # numerically integrate density profile for mass to get rho_o
     rho_o = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
     
+    # define the density profile function to get pressure Eq.
     rho = lambda r: rho_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
 
     n_o = rho_o / (mu * cgs.mp)
@@ -183,6 +256,7 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
     # now find the pressure equilibrium temperature and density of halo
     n_gas_edge = rho(r_HI)/(cgs.mp*mu)
 
+    # find the pressure equillibrium
     if (T_halo == None and n_halo == None):
         print 'no halo paramaters provided for pressure eq'
         return c,r_s,M200,n_o
