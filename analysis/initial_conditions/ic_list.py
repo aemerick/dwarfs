@@ -149,8 +149,8 @@ class dwarf_ic:
         params = {'T_dwarf' : ['sim_TCloud',self.ic['T_dwarf']],
                   'T_halo'  : ['sim_TAmbient',self.ic['T_halo']],
                   'M200'    : ['sim_M200',self.ic['M200']],
-                  'n_halo'  : ['sim_rhoAmbient',self.ic['mu_dwarf']*cgs.mp*self.ic['n_halo']],
-                  'n_o'     : ['sim_rhoCenter',self.ic['mu_halo']*cgs.mp*self.ic['n_o']],
+                  'n_halo'  : ['sim_rhoAmbient',self.ic['mu_halo']*cgs.mp*self.ic['n_halo']],
+                  'n_o'     : ['sim_rhoCenter',self.ic['mu_dwarf']*cgs.mp*self.ic['n_o']],
                   'mu_dwarf': ['sim_mu_dwarf',self.ic['mu_dwarf']],
                   'mu_halo' : ['sim_mu_halo',self.ic['mu_halo']],
                   'b'       : ['sim_bparam',self.ic['b']],
@@ -176,6 +176,7 @@ known_initial_conditions = {'Leo_T_obs':
                              'r_DM': 300.*cgs.pc, 'r_HI':300.0*cgs.pc,
                              'M_HI' : 2.8E5*cgs.Msun,
                              'b'    : 500.0*cgs.pc,
+                             'n_halo' : 6.E-5, 
                              'potential_type':'NFW'},
 
                              'Sextans_test':
