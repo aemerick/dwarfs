@@ -77,7 +77,7 @@ class dwarf_ic:
                 c, r_s, M200, n_o, T_halo, n_halo =\
                                prof.solve_NFW(self.ic['M_DM'], self.ic['r_DM'],
                                self.ic['r_s'] , self.ic['M_HI'],
-                               self.ic['r_HI'], self.ic['T'],
+                               self.ic['r_HI'], self.ic['T_dwarf'],
                                mu=self.ic['mu_dwarf'],
                                mu_halo=self.ic['mu_halo'],
                                T_halo = T_halo, n_halo= n_halo,
@@ -139,7 +139,7 @@ class dwarf_ic:
         self.radius = RM
 
 
-    def FLASH_readable_ic(filename=None):
+    def FLASH_readable_ic(self,filename=None):
         """
            Saves to file or prints to screen the IC's
            in a fashion that can be copy pasted into
@@ -156,14 +156,18 @@ class dwarf_ic:
                   'b'       : ['sim_bparam',self.ic['b']],
                   'rho_crit': ['sim_rho_crit',self.ic['rho_crit']]}
         
+ 
+        output_form = "{:<18} = {:8.8E}"
         if (filename == None):        
             for p in params:
-                print params[p][0] + " = %8.8E"%(params[p][1])
+                print output_form.format(params[p][0],params[p][1])
         else:
+           format = format + "\n"
            f = open(filename, 'w')
-           f.write(params[p][0] + " = %8.8E\n"%(params[p][1]))
+           for p in params:
+               f.write(output_form.format(params[p][0],params[p][1]))
  
-        f.close()
+           f.close()
         
 
 
