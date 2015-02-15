@@ -196,8 +196,8 @@ def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     return rho, RM
 
 
-def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T,
-                  mu=1.31, mu_halo=0.6, T_halo=None, 
+def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
+                  mu_dwarf=1.31, mu_halo=0.6, T_halo=None, 
                   n_halo = None, rho_crit=9.74E-30):
 
     """ 
@@ -205,9 +205,60 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T,
        needed to set up gas in HSE with a burkert potential
     """
 
-    
+    # find central density using notation in Faerman et. al. 2013 
+    f_M = 1.5 * (0.5*np.log(1+(r_DM/r_s)**2) +\
+                     np.log(1.0+(r_DM/r_s))  -\
+                     np.arctan(r_DM/r_s))
+    rho_DM = (M_DM / f_M) * (3.0/(4.0*np.pi)) / (r_s**3)
 
-    return 1.0 
+
+    R200 = (rho_DM * (3.0/200.0) / rho_crit)**0.5 * r_s
+    M200 = 4.0/3.0 * np.pi * R200**3 * rho_crit * 200.0
+
+    # we now have M200 and r_s, which defines the DM profile
+    # now, find n_o / rho_o to define the gas density profile
+
+    C_g = mu * cgs.mp / (cgs.kb * T_dwarf)
+    D_B = 4.0 * np.pi * cgs.G * rho_DM * r_s**2
+
+    # integrate density equation to get cumulative mass and solve
+    # for the necessary central density.
+    def __integrand(r,C_g=C_g,D_B,r_s=r_s):
+        x = r / r_s
+ 
+        if (r>0):
+            val = np.exp(-C_g * D_B *(1.0 + 0.5*np.log(1.+x**2)-\
+                                      np.arctan(x)/x))
+        else:
+            val = 1.0
+
+        val = 4.0*np.pi * r * r *val
+
+        return val
+
+    # numerically integrate density profile for mass to get rho_o
+    rho_o = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
+    n_o = rho_o / (mu * cgs.mp)
+
+    density = lambda r: rho_o * np.exp(-C_g * D_B * (1.0+\
+                                0.5*np.log(1.0+(r/r_s)**2)-\
+                                np.arctan(r/r_s)/(r/r_s)))
+
+    # now find the pressure equilibrium temperature and density of halo
+    n_gas_edge = rho(r_HI)/(cgs.mp*mu)
+
+    # find the pressure equillibrium
+    if (T_halo == None and n_halo == None):
+        print 'no halo paramaters provided for pressure eq'
+        return c,r_s,M200,n_o
+
+    elif (T_halo == None):
+        T_halo = n_gas_edge/n_halo * T
+    else:
+        n_halo     = n_gas_edge * T / T_halo
+
+    return r_s, M200, n_o, T_halo, n_halo
+ 
 
 def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T, 
               mu=1.31, mu_halo=0.6, T_halo=None,n_halo=None,
