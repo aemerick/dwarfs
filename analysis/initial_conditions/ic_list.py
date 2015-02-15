@@ -50,7 +50,7 @@ class dwarf_ic:
             print "If M200 or n_o are not set, they will be solved for"
             print "using the profile choice"
 
-            if not 'M_DM' in self.ic.keys() or\  
+            if not 'M_DM' in self.ic.keys() or\
                not 'M_HI' in self.ic.keys() or\
                not 'r_DM' in self.ic.keys() or\
                not 'r_HI' in self.ic.keys():
@@ -72,8 +72,7 @@ class dwarf_ic:
 
  
             if self.ic['potential_type'] == 'NFW':
-    return r_s, M200, n_o, T_halo, n_halo
-                
+              
 
                 c, r_s, M200, n_o, T_halo, n_halo =\
                                prof.solve_NFW(self.ic['M_DM'], self.ic['r_DM'],
@@ -96,7 +95,7 @@ class dwarf_ic:
                                self.ic['r_s'] , self.ic['M_HI'],
                                self.ic['r_HI'], self.ic['T'],
                                mu_dwarf=self.ic['mu_dwarf'],
-                               mu_halo=self.ic['mu_halo']
+                               mu_halo=self.ic['mu_halo'],
                                T_halo = T_halo, n_halo= n_halo,
                                rho_crit = self.ic['rho_crit'])
 
@@ -157,8 +156,14 @@ class dwarf_ic:
                   'b'       : ['sim_bparam',self.ic['b']],
                   'rho_crit': ['sim_rho_crit',self.ic['rho_crit']]}
         
-        for p in params:
-            print params[p][0] + " = %8.8E"%(params[p][1])
+        if (filename == None):        
+            for p in params:
+                print params[p][0] + " = %8.8E"%(params[p][1])
+        else:
+           f = open(filename, 'w')
+           f.write(params[p][0] + " = %8.8E\n"%(params[p][1]))
+ 
+        f.close()
         
 
 
@@ -166,7 +171,8 @@ known_initial_conditions = {'Leo_T_obs':
                             {'T_dwarf' : 1.0E4, 'M_DM' : 1.0E7*cgs.Msun,
                              'r_DM': 300.*cgs.pc, 'r_HI':300.0*cgs.pc,
                              'M_HI' : 2.8E5*cgs.Msun,
-                             'b'    : 500.0*cgs.pc},
+                             'b'    : 500.0*cgs.pc,
+                             'potential_type':'NFW'},
 
                              'Sextans_test':
                                {'T_dwarf' : 1.0E4, 'T_halo': 1.8E6,

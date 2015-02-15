@@ -223,7 +223,7 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
 
     # integrate density equation to get cumulative mass and solve
     # for the necessary central density.
-    def __integrand(r,C_g=C_g,D_B,r_s=r_s):
+    def __integrand(r,C_g=C_g,D_B=D_B,r_s=r_s):
         x = r / r_s
  
         if (r>0):
