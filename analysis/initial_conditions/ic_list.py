@@ -178,6 +178,17 @@ known_initial_conditions = {'Leo_T_obs':
                              'b'    : 500.0*cgs.pc,
                              'n_halo' : 6.E-5, 
                              'potential_type':'NFW'},
+                            # from Faerman et. al. 2013
+                            'Leo_T_burkert':
+                            {'T_dwarf' : 6.0E3,
+                             'M200'   : 0.979796E7 * cgs.Msun,
+                             'b'    : 708.627233 * cgs.pc, 
+                             'T_halo' : 8.0E5,
+                             'n_halo' : 1.25E-5,
+                             'n_o'    : 2.816185897E-3,
+                             'mu_dwarf' : 1.31,
+                             'mu_halo'  : 0.6,
+                             'potential_type':'Burkert'},
 
                              'Sextans_test':
                                {'T_dwarf' : 1.0E4, 'T_halo': 1.8E6,

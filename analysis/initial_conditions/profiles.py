@@ -81,17 +81,19 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
 
     # central dark matter denisty
-    rho_DM = (R200/r_s)**2 * (200.0/3.0) * rho_crit
-    
+    rho_DM = (R200/r_s)**2 * (200.0/3.0) * rho_crit    
+
     rho_o = n_o * cgs.mp * mu
 
     # constant in exponential from gas properties
-    C_gas = mu * cgs.mp / (cgs.kb * T)
-  
+    C_gas = mu * cgs.mp / (cgs.kb * T)  
     # constant in exp from DM profile
     D_B = 4.0*np.pi*cgs.G*rho_DM*r_s**2
 
-    rho = rho_o * np.exp(- C_gas * D_B * (1.0 +\
+    print "rhoDM   cgas    dB"
+    print rho_DM, C_gas, D_B
+
+    rho = rho_o * np.exp(- C_gas * D_B * (0.0 +\
                               0.5*np.log(1.0 + (r/r_s)**2) + \
                               np.arctan(r/r_s)/(r/r_s)))
 
