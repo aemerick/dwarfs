@@ -223,8 +223,11 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
                      np.arctan(r_DM/r_s))
     rho_DM = (M_DM / f_M) * (3.0/(4.0*np.pi)) / (r_s**3)
 
+    # solve the burkert density profile at (R200,200*rho_crit)
+    eq_solve = lambda x : (200.0*rho_crit/rho_DM)*((1.0+x)*(1.0+x*x)) - 1.0
 
-    R200 = (rho_DM * (3.0/200.0) / rho_crit)**0.5 * r_s
+    # find the rot of the Eq. (x = R200 / r_s)
+    R200 = r_s * opt.bisect(eq_solve, 0.0, 10.0)
     M200 = 4.0/3.0 * np.pi * R200**3 * rho_crit * 200.0
 
     # we now have M200 and r_s, which defines the DM profile
@@ -239,8 +242,13 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
         x = r / r_s
  
         if (r>0):
-            val = np.exp(-C_g * D_B *(1.0 + 0.5*np.log(1.+x**2)-\
-                                      np.arctan(x)/x))
+            rho = np.exp(-C_g * D_B *\
+              (0.25*np.log(1.0+x**2) + 0.5*np.arctan(x) - 0.25*np.log(1.+x**2)/x -\
+              0.50*np.log(1.0+x)/x  -0.5*np.log(1.0+x) + 0.5))
+
+ 
+#            val = np.exp(-C_g * D_B *(1.0 + 0.5*np.log(1.+x**2)-\
+#                                      np.arctan(x)/x))
         else:
             val = 1.0
 
@@ -250,11 +258,13 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
 
     # numerically integrate density profile for mass to get rho_o
     rho_o = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
-    n_o = rho_o / (mu * cgs.mp)
+    n_o = rho_o / (mu_dwarf * cgs.mp)
 
-    density = lambda r: rho_o * np.exp(-C_g * D_B * (1.0+\
-                                0.5*np.log(1.0+(r/r_s)**2)-\
-                                np.arctan(r/r_s)/(r/r_s)))
+#    density = lambda r: rho_o * np.exp(-C_g * D_B * (1.0+\
+#                                0.5*np.log(1.0+(r/r_s)**2)-\
+#                                np.arctan(r/r_s)/(r/r_s)))
+    density = lambda r: Burkert_isothermal_gas(r, r_s, M200, T_dwarf,
+                                               n_o, mu=mu_dwarf)
 
     # now find the pressure equilibrium temperature and density of halo
     n_gas_edge = rho(r_HI)/(cgs.mp*mu)
