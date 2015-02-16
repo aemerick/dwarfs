@@ -93,9 +93,19 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     print "rhoDM   cgas    dB"
     print rho_DM, C_gas, D_B
 
-    rho = rho_o * np.exp(- C_gas * D_B * (0.0 +\
-                              0.5*np.log(1.0 + (r/r_s)**2) + \
-                              np.arctan(r/r_s)/(r/r_s)))
+    # R is the unitless radisu
+    R = r / r_s
+
+    rho = np.exp(-C_gas * D_B *\
+          (0.25*np.log(1.0+R**2) + 0.5*np.arctan(R) - 0.25*np.log(1.+R**2)/R -\
+           0.50*np.log(1.0+R)/R  -0.5*np.log(1.0+R) + 0.5))
+    rho = rho_o * rho
+   
+
+# OLD PROFILE FROM INCORRECT DM PROFILE
+#    rho = rho_o * np.exp(- C_gas * D_B * (0.0 +\
+#                              0.5*np.log(1.0 + (r/r_s)**2) + \
+#                              np.arctan(r/r_s)/(r/r_s)))
 
     return rho
 
