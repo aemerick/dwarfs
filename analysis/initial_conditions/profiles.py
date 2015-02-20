@@ -65,8 +65,12 @@ def burkert_DM(r, r_s, M200, rho_crit=9.74E-30):
         profile
     """
     R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
+    R = R200/r_s
 
-    rho_o = (R200/r_s)**2 * (200.0/3.0) * rho_crit    
+    rho_o = M200/(4.0*np.pi*r_s**3) / (0.5*np.log(1+R) + 0.25* np.log(1+R**2)-\
+                               0.5*np.arctan(R))
+
+#    rho_o = (R200/r_s)**2 * (200.0/3.0) * rho_crit    
 
     return rho_o/((1+r/r_s)*(1+(r/r_s)**2))
 
@@ -81,7 +85,10 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
 
     # central dark matter denisty
-    rho_DM = (R200/r_s)**2 * (200.0/3.0) * rho_crit    
+    R = R200/r_s
+
+    rho_DM = M200/(4.0*np.pi*r_s**3) / (0.5*np.log(1+R) + 0.25* np.log(1+R**2)-\
+                               0.5*np.arctan(R))
 
     rho_o = n_o * cgs.mp * mu
 
@@ -90,8 +97,8 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     # constant in exp from DM profile
     D_B = 4.0*np.pi*cgs.G*rho_DM*r_s**2
 
-    print "rhoDM   cgas    dB"
-    print rho_DM, C_gas, D_B
+   # print "rhoDM   cgas    dB"
+   # print rho_DM, C_gas, D_B
 
     # R is the unitless radisu
     R = r / r_s
@@ -233,7 +240,7 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
     # we now have M200 and r_s, which defines the DM profile
     # now, find n_o / rho_o to define the gas density profile
 
-    C_g = mu * cgs.mp / (cgs.kb * T_dwarf)
+    C_g = mu_dwarf * cgs.mp / (cgs.kb * T_dwarf)
     D_B = 4.0 * np.pi * cgs.G * rho_DM * r_s**2
 
     # integrate density equation to get cumulative mass and solve
@@ -242,7 +249,7 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
         x = r / r_s
  
         if (r>0):
-            rho = np.exp(-C_g * D_B *\
+            val = np.exp(-C_g * D_B *\
               (0.25*np.log(1.0+x**2) + 0.5*np.arctan(x) - 0.25*np.log(1.+x**2)/x -\
               0.50*np.log(1.0+x)/x  -0.5*np.log(1.0+x) + 0.5))
 
@@ -267,7 +274,7 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
                                                n_o, mu=mu_dwarf)
 
     # now find the pressure equilibrium temperature and density of halo
-    n_gas_edge = rho(r_HI)/(cgs.mp*mu)
+    n_gas_edge = density(r_HI)/(cgs.mp*mu_dwarf)
 
     # find the pressure equillibrium
     if (T_halo == None and n_halo == None):
@@ -275,19 +282,18 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
         return c,r_s,M200,n_o
 
     elif (T_halo == None):
-        T_halo = n_gas_edge/n_halo * T
+        T_halo = n_gas_edge/n_halo * T_dwarf
     else:
-        n_halo     = n_gas_edge * T / T_halo
+        n_halo     = n_gas_edge * T_dwarf / T_halo
 
     return r_s, M200, n_o, T_halo, n_halo
  
 
-def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T, 
-              mu=1.31, mu_halo=0.6, T_halo=None,n_halo=None,
-              rho_crit = 9.74E-30):
+def solve_NFW_DM(M_DM, r_DM, r_s, rho_crit = 9.74E-30):
     """
-        Given some dark matter mass and a scaling parameter
-        r_s, solve for the dark matter profile parameters
+        Solves the NFW DM profile for M200, R200, and rho_o given
+        the DM mass interior to some radius, and the desired scale
+        radius OR the desired concentration parameter
     """
 
     rho_s = M_DM/(4.0*np.pi*r_s**3) / (np.log(1.0+r_DM/r_s) - r_DM/(r_s+r_DM))
@@ -300,6 +306,20 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
     R200 = c*r_s
 
     M200 = (4.0*np.pi/3.0)*200.0*rho_crit * R200**3
+
+
+    return M200, R200, rho_s, r_s, c
+
+
+def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T, 
+              mu=1.31, mu_halo=0.6, T_halo=None,n_halo=None,
+              rho_crit = 9.74E-30):
+    """
+        Given some dark matter mass and a scaling parameter
+        r_s, solve for the dark matter profile parameters
+    """
+
+    M200, R200, rho_s, r_s, c = solve_NFW_DM(M_DM, r_DM, r_s, rho_crit=rho_crit)
 
     # now solve for the central gas density given M_HI at r_HI
 
@@ -365,33 +385,34 @@ def plot_profile(r, profile, filename=None, persist=False,**kwargs):
     else:
         plt.close()
 
-Tcorona = 1.8E6
-rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
-Pcorona = Tcorona * rho_corona * cgs.kb / (cgs.mp*cgs.mu)
+def _run_test():
+    Tcorona = 1.8E6
+    rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
+    Pcorona = Tcorona * rho_corona * cgs.kb / (cgs.mp*cgs.mu)
 
 
-r = np.linspace(0.0,10**3.5,10000.0)*cgs.pc
-fig, ax1, rho = plot_profile(r,'Isothermal NFW',persist=True,c=21.5,Pcorona=Pcorona)
-print r[0], r[-1]
+    r = np.linspace(0.0,10**3.5,10000.0)*cgs.pc
+    fig, ax1, rho = plot_profile(r,'Isothermal NFW',persist=True,c=21.5,Pcorona=Pcorona)
+    print r[0], r[-1]
 
 
-#Tcorona = 1.8E6
-#rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
-#Pcorona = Tcorona * rho_corona * cgs.kb / (cgs.mp*cgs.mu)
+    #Tcorona = 1.8E6
+    #rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
+    #Pcorona = Tcorona * rho_corona * cgs.kb / (cgs.mp*cgs.mu)
 
-print 'rho ambient', rho_corona
+    print 'rho ambient', rho_corona
 
-ax2 = ax1.twinx()
-mu_dwarf = 1.31
-ax2.plot(ax1.get_xlim(),[Pcorona,Pcorona],label='Corona',color='red',lw=1.75,ls='--')
-P_dwarf = cgs.kb * rho/(cgs.mp*mu_dwarf) * 1.0E4
+    ax2 = ax1.twinx()
+    mu_dwarf = 1.31
+    ax2.plot(ax1.get_xlim(),[Pcorona,Pcorona],label='Corona',color='red',lw=1.75,ls='--')
+    P_dwarf = cgs.kb * rho/(cgs.mp*mu_dwarf) * 1.0E4
 
-ax2.plot(r/cgs.pc, P_dwarf,label='Dwarf',color='red',lw=1.75,ls='-')
-ax2.semilogy()
-ax2.set_ylabel('Pressure')
-for t1 in ax2.get_yticklabels():
-    t1.set_color('red')
-ax2.legend(loc='best')
-plt.savefig('rho_P.png')
-plt.close()
+    ax2.plot(r/cgs.pc, P_dwarf,label='Dwarf',color='red',lw=1.75,ls='-')
+    ax2.semilogy()
+    ax2.set_ylabel('Pressure')
+    for t1 in ax2.get_yticklabels():
+        t1.set_color('red')
+    ax2.legend(loc='best')
+    plt.savefig('rho_P.png')
+    plt.close()
 
