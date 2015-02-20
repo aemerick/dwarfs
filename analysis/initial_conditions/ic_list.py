@@ -51,15 +51,23 @@ class dwarf_ic:
             print "using the profile choice"
 
             if not 'M_DM' in self.ic.keys() or\
-               not 'M_HI' in self.ic.keys() or\
-               not 'r_DM' in self.ic.keys() or\
-               not 'r_HI' in self.ic.keys():
-                   print "MUST SET 'M_DM' 'M_HI' 'r_DM' 'r_HI' to solve"
-                   return
+               not 'r_DM' in self.ic.keys():
+                   print "MUST SET 'M_DM', 'r_DM' to solve for DM halo prof"
+                   return 
+            elif (not 'M_HI' in self.ic.keys() or\
+                  not 'r_HI' in self.ic.keys()) and\
+             (not ('n_halo' in self.ic.keys() and 'T_halo' in self.ic.keys())):
+                  print "MUST SET EITHER 'M_HI' and 'r_HI' OR 'n_halo' and 'T_halo'"
+                  return
 
-            if 'T_halo' in self.ic.keys() and 'n_halo' in self.ic.keys():
-                print "ERROR: Both n_halo and T_halo canno be specified"
+
+
+            if ('T_halo' in self.ic.keys() and 'n_halo' in self.ic.keys()) and\
+               ('M_HI' in self.ic.keys() or 'r_HI' in self.ic.keys()):
+                print "ERROR: Both n_halo and T_halo cannot be specified"
+                print "       while M_HI and r_HI are also specified"
                 return
+
             elif 'T_halo' in self.ic.keys():
                 T_halo = self.ic['T_halo']
                 n_halo = None
@@ -72,28 +80,41 @@ class dwarf_ic:
 
  
             if self.ic['potential_type'] == 'NFW':
-              
 
-                c, r_s, M200, n_o, T_halo, n_halo =\
-                               prof.solve_NFW(self.ic['M_DM'], self.ic['r_DM'],
-                               self.ic['r_s'] , self.ic['M_HI'],
-                               self.ic['r_HI'], self.ic['T_dwarf'],
-                               mu=self.ic['mu_dwarf'],
-                               mu_halo=self.ic['mu_halo'],
-                               T_halo = T_halo, n_halo= n_halo,
-                               rho_crit = self.ic['rho_crit'])
+
+                if 'M_HI' in self.ic.keys() and 'r_HI' in self.ic.keys():                             
+                    n_o = None
+                elif 'n_o' in self.ic.keys()
+                    n_o = self.ic['n_o']
+                else:
+                    print 'n_o must be set as an initial condition'
+                    return
+          
+ 
+                    c, r_s, M200, n_o, T_halo, n_halo, rmatch=\
+                                   prof.solve_NFW(self.ic['M_DM'], self.ic['r_DM'],
+                                   self.ic['r_s'] , self.ic['M_HI'],
+                                   self.ic['r_HI'], self.ic['T_dwarf'],
+                                   mu=self.ic['mu_dwarf'],
+                                   mu_halo=self.ic['mu_halo'],
+                                   T_halo = T_halo, n_halo= n_halo,
+                                   rho_crit = self.ic['rho_crit'],
+                                   n_o = n_o)
+             
+
                 self.ic['M200'] = M200
                 self.ic['n_o' ] = n_o
                 self.ic['T_halo'] = T_halo
                 self.ic['n_halo'] = n_halo
                 self.ic['c']      = c
+                self.ic['RM']     = rmatch
 
             elif self.ic['potential_type'] == 'Burkert':
 
                 r_s, M200, n_o, T_halo, n_halo=\
-                      prof.solve_Burkert(self.ic['M_DM'], self.ic['r_DM'],
+                      prof.solve_burkert(self.ic['M_DM'], self.ic['r_DM'],
                                self.ic['r_s'] , self.ic['M_HI'],
-                               self.ic['r_HI'], self.ic['T'],
+                               self.ic['r_HI'], self.ic['T_dwarf'],
                                mu_dwarf=self.ic['mu_dwarf'],
                                mu_halo=self.ic['mu_halo'],
                                T_halo = T_halo, n_halo= n_halo,
@@ -171,7 +192,16 @@ class dwarf_ic:
         
 
 
-known_initial_conditions = {'Leo_T_obs':
+known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
+                            {'n_o'  : 0.4, 'mu_dwarf' : 1.31,
+                             'T_halo': 1.8E6, 'n_halo' : 1.7E-4,
+                             'M_DM'  : 3.7E7 * cgs.Msun, 
+                             'r_DM'  : 0.87  * cgs.kpc,
+                             'T_dwarf': 1.0E4,
+                             'b'     :  ### need b param ###,
+                             'potential_type' : 'NFW'},
+
+                            'Leo_T_obs':
                             {'T_dwarf' : 1.0E4, 'M_DM' : 1.0E7*cgs.Msun,
                              'r_DM': 300.*cgs.pc, 'r_HI':300.0*cgs.pc,
                              'M_HI' : 2.8E5*cgs.Msun,
@@ -190,6 +220,14 @@ known_initial_conditions = {'Leo_T_obs':
                              'mu_dwarf' : 1.31,
                              'mu_halo'  : 0.6,
                              'potential_type':'Burkert'},
+                           'Leo_T_solve_burkert':
+                            {'T_dwarf' : 6000.0, 'M_DM' : 3.3E6*cgs.Msun,
+                             'r_DM': 350.*cgs.pc, 'r_HI':350.0*cgs.pc,
+                             'M_HI' : 2.8E5*cgs.Msun,
+                             'b'    : 708.627233*cgs.pc,
+                             'T_halo' : 7.5E5, 
+                             'potential_type':'Burkert'},  
+                             
 
                              'Sextans_test':
                                {'T_dwarf' : 1.0E4, 'T_halo': 1.8E6,
@@ -216,11 +254,11 @@ known_initial_conditions = {'Leo_T_obs':
                            }
                                         
 num_dwarfs = len(known_initial_conditions.keys())
-dwarf_dict = {}
+ic_object_dict = {}
 
 for known_dwarf in known_initial_conditions:
-    dwarf_dict[known_dwarf] = dwarf_ic(known_dwarf)
-    dwarf_dict[known_dwarf].set_ic(known_initial_conditions[known_dwarf])
+    ic_object_dict[known_dwarf] = dwarf_ic(known_dwarf)
+    ic_object_dict[known_dwarf].set_ic(known_initial_conditions[known_dwarf])
     
  
 print "Loaded IC's for ", num_dwarfs, " dwarf galaxies"
