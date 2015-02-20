@@ -312,8 +312,8 @@ def solve_NFW_DM(M_DM, r_DM, r_s, rho_crit = 9.74E-30):
 
 
 def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T, 
-              mu=1.31, mu_halo=0.6, T_halo=None,n_halo=None,
-              rho_crit = 9.74E-30):
+              mu=1.31, mu_halo=0.6, T_halo=None, n_halo=None,
+              rho_crit = 9.74E-30, n_o= None):
     """
         Given some dark matter mass and a scaling parameter
         r_s, solve for the dark matter profile parameters
@@ -325,41 +325,59 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
 
     C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu * cgs.mp /(cgs.kb*T)
 
-
-    # make the integrand to get the cumulative
-    # mass function, or M(r) = integrate( __integrand )
-    def __integrand(r,C_NFW=C_NFW,r_s=r_s):
-        if (r>0):
-            val = np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
-        else:
-            val = 1.0
+    if n_o == None: # if no central density is provided, it is solved 
+                    # for given r_HI and M_HI. 
+        # make the integrand to get the cumulative
+        # mass function, or M(r) = integrate( __integrand )
+        def __integrand(r,C_NFW=C_NFW,r_s=r_s):
+            if (r>0):
+                val = np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
+            else:
+                val = 1.0
         
-        val = 4.0*np.pi * r * r *val        
+            val = 4.0*np.pi * r * r *val        
   
-        return val
+            return val
 
-    # numerically integrate density profile for mass to get rho_o
-    rho_o = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
+        # numerically integrate density profile for mass to get rho_o
+        rho_o = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
     
-    # define the density profile function to get pressure Eq.
-    rho = lambda r: rho_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
+        # define the density profile function to get pressure Eq.
+        rho = lambda r: rho_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
 
-    n_o = rho_o / (mu * cgs.mp)
+        n_o = rho_o / (mu * cgs.mp)
 
-    # now find the pressure equilibrium temperature and density of halo
-    n_gas_edge = rho(r_HI)/(cgs.mp*mu)
+        # now find the pressure equilibrium temperature and density of halo
+        n_gas_edge = rho(r_HI)/(cgs.mp*mu)
 
-    # find the pressure equillibrium
-    if (T_halo == None and n_halo == None):
-        print 'no halo paramaters provided for pressure eq'
-        return c,r_s,M200,n_o
+        # find the pressure equillibrium
+        if (T_halo == None and n_halo == None):
+            print 'no halo paramaters provided for pressure eq'
+            return c,r_s,M200,n_o
 
-    elif (T_halo == None):
-        T_halo = n_gas_edge/n_halo * T
-    else:
-        n_halo     = n_gas_edge * T / T_halo
+        elif (T_halo == None):
+            T_halo = n_gas_edge/n_halo * T
+        else:
+            n_halo     = n_gas_edge * T / T_halo
     
-    return c, r_s, M200, n_o, T_halo, n_halo
+        rmatch = r_HI
+    else: # if n_o is provided, r_HI and M_HI are ingored
+        rho_o = n_o * cgs.mp * mu_halo
+
+        n_dens = lambda r: n_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
+
+        # now, solve for the match radius ... ASSUME HALO PRESSURE IS KNOWN
+        Pcorona = n_halo * T_halo * cgs.mp * mu_halo * cgs.kb
+
+        Pdwarf = lambda r: n_dens(r) * cgs. kb * T_dwarf
+
+        eq_solve = lambda r : Pdwarf(r) - Pcorona
+
+        # Now find r such that Pdwarf = Pcorona
+        rmatch = opt.bisect(eq_solve, 0.0, 1000.0*cgs.pc)
+
+       
+    return c, r_s, M200, n_o, T_halo, n_halo, rmatch
 
 def plot_profile(r, profile, filename=None, persist=False,**kwargs):
 
