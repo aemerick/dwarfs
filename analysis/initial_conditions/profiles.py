@@ -367,14 +367,14 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
         n_dens = lambda r: n_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
 
         # now, solve for the match radius ... ASSUME HALO PRESSURE IS KNOWN
-        Pcorona = n_halo * T_halo * cgs.mp * mu_halo * cgs.kb
+        Pcorona = n_halo * T_halo * cgs.kb
 
-        Pdwarf = lambda r: n_dens(r) * cgs. kb * T_dwarf
+        Pdwarf = lambda r: n_dens(r) * cgs. kb * T
 
         eq_solve = lambda r : Pdwarf(r) - Pcorona
 
         # Now find r such that Pdwarf = Pcorona
-        rmatch = opt.bisect(eq_solve, 0.0, 1000.0*cgs.pc)
+        rmatch = opt.bisect(eq_solve, 1.0*cgs.pc, 2000.0*cgs.pc)
 
        
     return c, r_s, M200, n_o, T_halo, n_halo, rmatch

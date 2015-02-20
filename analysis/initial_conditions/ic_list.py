@@ -1,6 +1,7 @@
 import profiles as prof
 import cgs as cgs
 import numpy as np
+import copy
 
 class dwarf_ic:
 
@@ -61,21 +62,35 @@ class dwarf_ic:
                   return
 
 
-
+            
             if ('T_halo' in self.ic.keys() and 'n_halo' in self.ic.keys()) and\
                ('M_HI' in self.ic.keys() or 'r_HI' in self.ic.keys()):
                 print "ERROR: Both n_halo and T_halo cannot be specified"
                 print "       while M_HI and r_HI are also specified"
                 return
 
-            elif 'T_halo' in self.ic.keys():
+            elif 'M_HI' in self.ic.keys() and 'r_HI' in self.ic.keys():
+                M_HI = self.ic['M_HI'] ; r_HI = self.ic['r_HI']
+                if 'T_halo' in self.ic.keys():
+                    T_halo = self.ic['T_halo']
+                    n_halo = None
+                elif 'n_halo' in self.ic.keys():
+                    n_halo = self.ic['n_halo']
+                    T_halo = None
+
+                else:
+                    print "ERROR: Either n_halo and T_halo must be specified"
+                    return
+
+            elif 'T_halo' in self.ic.keys() and 'n_halo' in self.ic.keys():
                 T_halo = self.ic['T_halo']
-                n_halo = None
-            elif 'n_halo' in self.ic.keys():
                 n_halo = self.ic['n_halo']
-                T_halo = None
+                M_HI   = -1.0
+                r_HI   = -1.0
+
+          
             else:
-                print "ERROR: Either n_halo and T_halo must be specified"
+                print "T_halo and n_halo must be set"
                 return
 
  
@@ -84,17 +99,17 @@ class dwarf_ic:
 
                 if 'M_HI' in self.ic.keys() and 'r_HI' in self.ic.keys():                             
                     n_o = None
-                elif 'n_o' in self.ic.keys()
+                elif 'n_o' in self.ic.keys():
                     n_o = self.ic['n_o']
                 else:
                     print 'n_o must be set as an initial condition'
                     return
           
  
-                    c, r_s, M200, n_o, T_halo, n_halo, rmatch=\
+                c, r_s, M200, n_o, T_halo, n_halo, rmatch=\
                                    prof.solve_NFW(self.ic['M_DM'], self.ic['r_DM'],
-                                   self.ic['r_s'] , self.ic['M_HI'],
-                                   self.ic['r_HI'], self.ic['T_dwarf'],
+                                   self.ic['r_s'] , M_HI, r_HI,
+                                   self.ic['T_dwarf'],
                                    mu=self.ic['mu_dwarf'],
                                    mu_halo=self.ic['mu_halo'],
                                    T_halo = T_halo, n_halo= n_halo,
@@ -198,7 +213,7 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                              'M_DM'  : 3.7E7 * cgs.Msun, 
                              'r_DM'  : 0.87  * cgs.kpc,
                              'T_dwarf': 1.0E4,
-                             'b'     :  ### need b param ###,
+                             'b'     :  795.0*cgs.pc,### Walker et. al. 2009 +erratum ###,
                              'potential_type' : 'NFW'},
 
                             'Leo_T_obs':
@@ -257,8 +272,9 @@ num_dwarfs = len(known_initial_conditions.keys())
 ic_object_dict = {}
 
 for known_dwarf in known_initial_conditions:
+    print "Loading IC for ", known_dwarf
     ic_object_dict[known_dwarf] = dwarf_ic(known_dwarf)
-    ic_object_dict[known_dwarf].set_ic(known_initial_conditions[known_dwarf])
+    ic_object_dict[known_dwarf].set_ic(copy.deepcopy(known_initial_conditions[known_dwarf]))
     
  
 print "Loaded IC's for ", num_dwarfs, " dwarf galaxies"
