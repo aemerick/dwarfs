@@ -165,14 +165,14 @@ class dwarf_ic:
 
 
         elif type == 'Burkert_isothermal':
-            rho, RM = prof.Burkert_isothermal_gas(r, r_s=self.ic['b'],
+            rho  = prof.Burkert_isothermal_gas(r, r_s=self.ic['b'],
                                  M200=self.ic['M200'], T=self.ic['T_dwarf'],
                                n_o = self.ic['n_o'], mu = self.ic['mu_dwarf'],
                                rho_crit=self.ic['rho_crit'])  
 
         self.rvals  = r
         self.rho    = rho
-        self.radius = RM
+       # self.radius = RM
 
 
     def FLASH_readable_ic(self,filename=None):
@@ -204,7 +204,13 @@ class dwarf_ic:
                f.write(output_form.format(params[p][0],params[p][1]))
  
            f.close()
-        
+      
+      
+    def SF_ic(sfr=1.0):
+    
+    
+    
+      
 
 
 known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
@@ -217,30 +223,40 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                              'potential_type' : 'NFW'},
 
                             'Leo_T_obs':
-                            {'T_dwarf' : 1.0E4, 'M_DM' : 1.0E7*cgs.Msun,
+                            {'T_dwarf' : 6000.0, 'M_DM' :7.3E6*cgs.Msun,
                              'r_DM': 300.*cgs.pc, 'r_HI':300.0*cgs.pc,
                              'M_HI' : 2.8E5*cgs.Msun,
-                             'b'    : 500.0*cgs.pc,
-                             'n_halo' : 6.E-5, 
+                             'b'    : 795.0*cgs.pc,
+                             'n_halo' : 4.5E-4, 
+                             #'T_halo' : 7.5E5,
                              'potential_type':'NFW'},
+                      #      'Leo_T_obs_burkert':
+                      #      {'T_dwarf' : 1.0E4, 'M_DM' : 1.0E7*cgs.Msun,
+                      #       'r_DM': 300.*cgs.pc, 'r_HI':300.0*cgs.pc,
+                      #       'M_HI' : 2.8E5*cgs.Msun,
+                      #       'b'    : 500.0*cgs.pc,
+                      #       'n_halo' : 6.E-5,
+                      #       'potential_type':'Burkert'},
                             # from Faerman et. al. 2013
                             'Leo_T_burkert':
                             {'T_dwarf' : 6.0E3,
                              'M200'   : 0.979796E7 * cgs.Msun,
                              'b'    : 708.627233 * cgs.pc, 
                              'T_halo' : 8.0E5,
-                             'n_halo' : 1.25E-5,
+                             'n_halo' : 4.6E-5,
                              'n_o'    : 1.6954E-3,
                              #'n_o'    : 2.816185897E-3,
                              'mu_dwarf' : 1.31,
                              'mu_halo'  : 0.6,
                              'potential_type':'Burkert'},
                            'Leo_T_solve_burkert':
-                            {'T_dwarf' : 6000.0, 'M_DM' : 3.3E6*cgs.Msun,
-                             'r_DM': 350.*cgs.pc, 'r_HI':350.0*cgs.pc,
+                            {'T_dwarf' : 6000.0, 'M_DM' : 7.3E6*cgs.Msun,
+                             'r_DM': 300.*cgs.pc, 'r_HI':300.0*cgs.pc,
                              'M_HI' : 2.8E5*cgs.Msun,
-                             'b'    : 708.627233*cgs.pc,
-                             'T_halo' : 7.5E5, 
+                       #      'b'    : 708.627233*cgs.pc,
+                             'r_s' : 708*cgs.pc,
+                             'n_halo': 4.5E-4,
+                             #'T_halo' : 7.5E5, 
                              'potential_type':'Burkert'},  
                              
 
