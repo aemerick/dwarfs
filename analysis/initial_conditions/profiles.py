@@ -97,15 +97,29 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     # constant in exp from DM profile
     D_B = 4.0*np.pi*cgs.G*rho_DM*r_s**2
 
-   # print "rhoDM   cgas    dB"
-   # print rho_DM, C_gas, D_B
+    print "rhoDM   cgas    dB   R200"
+    print rho_DM, C_gas, D_B, R200
 
     # R is the unitless radisu
     R = r / r_s
 
-    rho = np.exp(-C_gas * D_B *\
-          (0.25*np.log(1.0+R**2) + 0.5*np.arctan(R) - 0.25*np.log(1.+R**2)/R -\
-           0.50*np.log(1.0+R)/R  -0.5*np.log(1.0+R) + 0.5))
+    if np.size(R) > 1:
+        rho = np.zeros(np.size(R))
+        rho[R>0] = np.exp(-C_gas * D_B *\
+              (0.25*np.log(1.0+R[R>0]**2) + 0.5*np.arctan(R[R>0]) - 0.25*np.log(1.+R[R>0]**2)/R[R>0] -\
+               0.50*np.log(1.0+R[R>0])/R[R>0]  -0.5*np.log(1.0+R[R>0]) + 0.5))
+        rho[R==0] = 1.0
+
+    else:
+        if R == 0:
+            rho = 1.0
+        else:
+            rho = np.exp(-C_gas * D_B *\
+              (0.25*np.log(1.0+R**2) + 0.5*np.arctan(R) - 0.25*np.log(1.+R**2)/R -\
+               0.50*np.log(1.0+R)/R  -0.5*np.log(1.0+R) + 0.5))
+    
+
+
     rho = rho_o * rho
    
 
@@ -138,8 +152,8 @@ def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
         c = R200 / r_s
 
 
-    print "c = ", c, "R200 = ", R200, "r_s = ", r_s 
-    print "R200 = ", R200/cgs.kpc, " kpc -- r_s = ", r_s/cgs.pc, " pc"
+  #  print "c = ", c, "R200 = ", R200, "r_s = ", r_s 
+  #  print "R200 = ", R200/cgs.kpc, " kpc -- r_s = ", r_s/cgs.pc, " pc"
         
     # scale density for the DM halo
     rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
@@ -147,21 +161,21 @@ def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     # constant in the exponential
     C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu *cgs.mp/(cgs.kb*T)
 
-    print "pi, G, rho_s, r_s, mu, mp, kb, T"
-    print "params:", np.pi, cgs.G, rho_s, r_s, mu, cgs.mp, cgs.kb, T
-    print "C_NFW = ", C_NFW
+   # print "pi, G, rho_s, r_s, mu, mp, kb, T"
+    #print "params:", np.pi, cgs.G, rho_s, r_s, mu, cgs.mp, cgs.kb, T
+    #print "C_NFW = ", C_NFW
     # central mass density 
     rho_o = n_o * cgs.mp * mu
-    print "rho_o = ", rho_o, "M200 = ", M200
+    #print "rho_o = ", rho_o, "M200 = ", M200
     # gas profile
 
     rho = np.zeros(np.size(r))
     rho[0]   = rho_o
     rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
 
-    RM=    find_rm(rho_o, C_NFW, r_s, Pcorona, cgs.kb/(mu*cgs.mp)*T)
-    print "RM = ", RM, RM/cgs.pc
-
+  #  RM=    find_rm(rho_o, C_NFW, r_s, Pcorona, cgs.kb/(mu*cgs.mp)*T)
+   # print "RM = ", RM, RM/cgs.pc
+    RM = 0.0
     return rho, RM
 
 
@@ -234,7 +248,7 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
     eq_solve = lambda x : (200.0*rho_crit/rho_DM)*((1.0+x)*(1.0+x*x)) - 1.0
 
     # find the rot of the Eq. (x = R200 / r_s)
-    R200 = r_s * opt.bisect(eq_solve, 0.0, 10.0)
+    R200 = r_s * opt.bisect(eq_solve, 0.0, 100.0)
     M200 = 4.0/3.0 * np.pi * R200**3 * rho_crit * 200.0
 
     # we now have M200 and r_s, which defines the DM profile
@@ -403,6 +417,41 @@ def plot_profile(r, profile, filename=None, persist=False,**kwargs):
     else:
         plt.close()
 
+def cumulative_mass(r, rho):
+    """
+    computes the cumulative mass profile
+    """
+    
+    mass_enclosed = np.zeros(np.size(r))
+    
+#    integrand = lambda x : x*x*rho[rx]
+    
+    for i in np.arange(np.size(r)):
+ #       mass_enclosed[i] = integrate.quad(integrand,0,r[i])[0] * 4.0*np.pi
+        #select = r[0:i]
+        mass_enclosed[i] = 4.0*np.pi*np.trapz(r[0:i]**2 * rho[0:i], r[0:i])
+  
+    
+    return mass_enclosed
+
+def column_density(r, n, R = None, f_H = 0.73, f_ion = 0.0):
+    """
+       Calculates the column density of a radial number density profile
+       assuming spherical symmetry. Assumes f_H = 0.73 and ionization fraction
+       of 0.0 unless otherwise supplied (i.e. primordial and neutral). If 
+       no radius of object is supplied ('R'), it is assumed to be max(r).
+    """
+    
+    if R == None:
+        R = np.max(r)
+    
+    n = n * f_H * (1.0 - f_ion)
+    
+    l    = np.sqrt( R**2 - r**2)
+    N_HI = l*n
+    
+    return N_HI
+
 def _run_test():
     Tcorona = 1.8E6
     rho_corona = 1.8E-4 * cgs.mp * cgs.mu# gatto with ionized primordial halo
@@ -433,4 +482,6 @@ def _run_test():
     ax2.legend(loc='best')
     plt.savefig('rho_P.png')
     plt.close()
+    
+
 
