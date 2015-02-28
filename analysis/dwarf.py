@@ -83,11 +83,14 @@ class simulation: # need a better name
         self.center = np.array( [ np.float(self.params['sim_xctr']),
                                   np.float(self.params['sim_yctr']),
                                   np.float(self.params['sim_zctr']) ])
+        self.center = self.center * yt.units.cm
 
 
         self._load_SN_data()
         self._load_SB_data()
 
+        # define the radius using the cloud temperature
+        self._find_radius()
 
         
 
@@ -97,6 +100,30 @@ class simulation: # need a better name
 #        print self.params['checkpointFileIntervalTime']
 
         self._load_times(exact_times)
+
+    def _find_radius(self):
+        """
+        Finds an estimate for the initial radius of the dwarf galaxy
+        as the farthest point away from the center of the box that
+        has the dwarf initial temperature
+        """
+        ds = yt.load(self.plt_list[0])
+        data = ds.all_data()        
+
+        x = data['x'].convert_to_units('cm')
+        y = data['y'].convert_to_units('cm')
+        z = data['z'].convert_to_units('cm')
+        r = sim.dist_from_center(x,y,z)
+
+        T = data['temp'].convert_to_units('K')
+        tcloud = sim.params['sim_TCloud']
+
+        rdwarf = r[np.abs(T-tcloud)/tcloud < 0.1]
+        rdwarf = rdwarf.convert_to_units('pc')
+
+        self.radius = np.max(rdwarf)
+
+        return
 
     def evaluate_potential(self, r):
         """
@@ -150,22 +177,22 @@ class simulation: # need a better name
         else:
             # do this exactly by loading every file and reading timestamp
             self.times['plt'] = np.zeros(np.size(self.plt_list))
-            self.times['chl'] = np.zeros(np.size(self.chk_list))
+            self.times['chk'] = np.zeros(np.size(self.chk_list))
  
             i = 0
             for plt in self.plt_list:
                 ds = yt.load(plt)
-                self.times['plt'][i] = ds.current_time.convert_to_units('s')
+                self.times['plt'][i] = ds.current_time.value
                 i = i + 1
             i = 0
             for chk in self.chk_list:
                 ds  = yt.load(chk)
-                self.times['chk'][i] = ds.current_time.convert_to_units('s')
+                self.times['chk'][i] = ds.current_time.value
                 i = i + 1
       
         # convert to Myr
-        self.times['plt'] = self.times['plt'].convert_to_units('Myr')
-        self.times['chk'] = self.times['chk'].convert_to_units('Myr')
+        self.times['plt'] = (self.times['plt'] * yt.units.s).convert_to_units('Myr')
+        self.times['chk'] = (self.times['chk'] * yt.units.s).convert_to_units('Myr')
         return
 
     def _get_ds_index(self, ds_type='plt'):
