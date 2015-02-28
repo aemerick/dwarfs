@@ -113,10 +113,10 @@ class simulation: # need a better name
         x = data['x'].convert_to_units('cm')
         y = data['y'].convert_to_units('cm')
         z = data['z'].convert_to_units('cm')
-        r = sim.dist_from_center(x,y,z)
+        r = self.dist_from_center(x,y,z)
 
         T = data['temp'].convert_to_units('K')
-        tcloud = sim.params['sim_TCloud']
+        tcloud = self.params['sim_TCloud']
 
         rdwarf = r[np.abs(T-tcloud)/tcloud < 0.1]
         rdwarf = rdwarf.convert_to_units('pc')
