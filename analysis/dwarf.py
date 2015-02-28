@@ -135,7 +135,7 @@ class simulation: # need a better name
                             '4': prof.NFW_potential,
                             '5': prof.Burkert_potential}
 
-        function = functions_lookup[self.params['density_profile']]
+        function = functions_lookup[str(self.params['density_profile'])]
 
         r_s  = self.params['sim_bparam'].value
         M200 = self.params['sim_M200'].value
@@ -258,7 +258,7 @@ class simulation: # need a better name
         density_unit  = mass_unit / length_unit**3
 
         length_params = ['sim_xctr','sim_yctr', 'sim_zctr', 'sim_RL',
-                         'sim_bParam', 'sim_wTaper', 'sim_rScale',
+                         'sim_bparam', 'sim_wTaper', 'sim_rScale',
                          'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax']
 
 
@@ -824,25 +824,28 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
     
     if tmin == None:
         tmin = 0.0 * yt.units.Myr
-    elif tmax == None:
+    if tmax == None:
         tmax = 1.0E4 * yt.units.Myr
 
     if len(T_range) == 2:
         T_range = np.array(T_range)*yt.units.Kelvin
 
-
+    
     sim.dwarf_mass = {}
-    sim.dwarf_mass[mode] = np.ones(np.size(sim.time['plt']))*-1
+    sim.dwarf_mass[mode] = np.ones(np.size(sim.times['plt']))*-1
 
+    
     # do only over select time range
-    ds_min  = np.argmin(sim.time['plt'] - tmin)
-    ds_max  = np.argmin(sim.time['plt'] - tmax)
+    ds_min  = np.argmin(np.abs((sim.times['plt'] - tmin).value))
+    ds_max  = np.argmin(np.abs((sim.times['plt'] - tmax).value))
 
 
     file = open(out_file, 'w')
     file.write("# t m\n")
     format = "%8.8e %8.8e\n"
+    print mode
     if mode == 'grav':
+        print 'calculating'
         # calculate dwarf gas mass as total bound gas mass of dwarf
         # 1) --- do over whole box! -- 
         # 2) get thermal energy and kinetic energy in each cell.. sum..
@@ -851,6 +854,7 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
         # 4) get mass in each cell
         # 5) sum cell mass where   E_th + E_kin - m*Phi(r) < 0
  
+        print ds_min, ds_max
         i = 0
         for dsname in ds_list[ds_min:ds_max]:
             ds = yt.load(dsname); data = ds.all_data()
@@ -880,7 +884,7 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
            
 
             sim.dwarf_mass[mode][i + ds_min] = total_mass
-            f.write(format%(ds.current_time.convert_to_units('Myr'),total_mass))
+            file.write(format%(ds.current_time.convert_to_units('Myr'),total_mass))
             i = i + 1
     
     elif mode == 'contained':
@@ -902,10 +906,10 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
                 total_mass = np.sum(mass)
 
             sim.dwarf_mass[mode][i + ds_min] = total_mass
-            f.write(format%(ds.current_time.convert_to_units('Myr').value,total_mass.value))
+            file.write(format%(ds.current_time.convert_to_units('Myr').value,total_mass.value))
             i = i + 1
 
-    f.close()
+    file.close()
     return 
         
 
