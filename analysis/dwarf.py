@@ -137,11 +137,13 @@ class simulation: # need a better name
 
         function = functions_lookup[str(self.params['density_profile'])]
 
+        # load params and sanitize units
         r_s  = self.params['sim_bparam'].value
         M200 = self.params['sim_M200'].value
         rho_crit = self.params['sim_rho_crit'].value
+        r = r.convert_to_units('cm').value
 
-        return function(r, r_s=r_s, M200=M200, rho_crit=rho_crit)
+        return function(r, r_s=r_s, M200=M200, rho_crit=rho_crit) * yt.units.cm**2 / yt.units.s**2
 
 
     def dist_from_center(self, x, y, z):
