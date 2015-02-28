@@ -15,10 +15,14 @@ except ImportError:
     from yaml import Loader, Dumper
 
 
+# some functions for analysis
+from initial_conditions import profiles as prof
+
 
 class simulation: # need a better name
 
-    def __init__(self, ds_prefix, param_file = "flash.par", ds_dir="./"):
+    def __init__(self, ds_prefix, param_file = "flash.par", ds_dir="./",
+                       exact_times=True):
         """
         Initiate simulation class
 
@@ -36,20 +40,37 @@ class simulation: # need a better name
         self.ds_dir     = ds_dir
 
         # make the ds_prefix prettier and just the meat        
+        # try to guess if user wants plot files or checkpoint files
         if "chk" in ds_prefix:
             ds_prefix = ds_prefix.replace("chk","")
             if "__" in ds_prefix:
                 ds_prefix = ds_prefix.replace("__","")
 
+        if "plt" in ds_prefix:
+            ds_prefix = ds_prefix.replace("plt","")
+            if "__" in ds_prefix:
+                ds_prefix = ds_prefix.replace("__","")
+        
+        if "cnt" in ds_prefix:
+            ds_prefix = ds_prefix.replace("cnt","")
+            if "__" in ds_prefix:
+                ds_prefix = ds_prefix.replace("__","")
+
+
+        # remove any trailing underscores
         if ds_prefix[-1] == "_":
             ds_prefix = ds_prefix[:-1]
  
         self.ds_prefix = ds_prefix
 
         # get the checkpoint file names into a list
-        ds_list = glob.glob(ds_dir + ds_prefix + "*chk*")
-        ds_list.sort()
-        self.ds_list = ds_list
+        chk_list = glob.glob(ds_dir + ds_prefix + "*chk*")
+        chk_list.sort()
+        self.chk_list = chk_list
+        
+        plt_list = glob.glob(ds_dir + ds_prefix + "*plt*")
+        plt_list.sort()
+        self.plt_list = plt_list
     
         # check if there are particle files. Do the same
         # if there are         
@@ -59,27 +80,105 @@ class simulation: # need a better name
 
 
         self._load_param_file()
-        # load SN and SB files
+        self.center = np.array( [ np.float(self.params['sim_xctr']),
+                                  np.float(self.params['sim_yctr']),
+                                  np.float(self.params['sim_zctr']) ])
+
 
         self._load_SN_data()
         self._load_SB_data()
+
+
         
-        # load the flash.par parameter file
-#        self.params = _load_param_file(self)
 
         # compute (roughly) t at each checkpoint file
 
-        print self._get_ds_index()
-        print self.params['checkpointFileIntervalTime']
-        self.times = self._get_ds_index()\
-                     * self.params['checkpointFileIntervalTime']
-  
-    def _get_ds_index(self):
+#        print self._get_ds_index()
+#        print self.params['checkpointFileIntervalTime']
+
+        self._load_times(exact_times)
+
+    def evaluate_potential(self, r):
+        """
+        Uses potential given in profiles to calculate the static 
+        analytic potential value at some point r
+        """
+
+        functions_lookup = {'3': prof.NFW_potential,
+                            '4': prof.NFW_potential,
+                            '5': prof.Burkert_potential}
+
+        function = functions_lookup[self.params['density_profile']]
+
+        r_s  = self.params['sim_bparam'].value
+        M200 = self.params['sim_M200'].value
+        rho_crit = self.params['sim_rho_crit'].value
+
+        return function(r, r_s=r_s, M200=M200, rho_crit=rho_crit)
+
+
+    def dist_from_center(self, x, y, z):
+        """ 
+        Returns radial distance of cartesian coordinate values
+        from simulation center
+        """
+        
+        return ((x - self.center[0])**2 + (y - self.center[1])**2 +\
+               (z - self.center[2])**2 )**0.5
+     
+        
+
+    def _load_times(self, exact):
+        """
+        Roughly calculates the times of every loaded file based
+        upon the parameter file interval time. THIS WILL NOT 
+        BE COMPLETELY ACCURATE IF dt DURING SIMULATION IS 
+        LARGE.
+        """
+#        print "approximating time stamps from .par file"
+
+        self.times = {}
+
+        if exact == False:
+            print "approximating time stamps from .par file"
+            self.times['plt'] = self._get_ds_index(ds_type='plt')*\
+                            self.params['plotfileIntervalTime']*yt.units.s
+            self.times['chk'] = self._get_ds_index(ds_type ='chk')*\
+                            self.params['checkpointFileIntervalTime'] * yt.units.s
+        
+            
+        else:
+            # do this exactly by loading every file and reading timestamp
+            self.times['plt'] = np.zeros(np.size(self.plt_list))
+            self.times['chl'] = np.zeros(np.size(self.chk_list))
+ 
+            i = 0
+            for plt in self.plt_list:
+                ds = yt.load(plt)
+                self.times['plt'][i] = ds.current_time.convert_to_units('s')
+                i = i + 1
+            i = 0
+            for chk in self.chk_list:
+                ds  = yt.load(chk)
+                self.times['chk'][i] = ds.current_time.convert_to_units('s')
+                i = i + 1
+      
+        # convert to Myr
+        self.times['plt'] = self.times['plt'].convert_to_units('Myr')
+        self.times['chk'] = self.times['chk'].convert_to_units('Myr')
+        return
+
+    def _get_ds_index(self, ds_type='plt'):
         """
         Returns the integer number associated will all 
-        known checkpoint files as an integer np array
+        known plt / checkpoint files as an integer np array
         """
-    
+        if ds_type == 'plt':
+            ds_list = self.plt_list
+        else:
+            ds_list = self.chk_list    
+
+
         if np.size(self.ds_list) == 0:
             values = np.array([0.0])
         else:
@@ -89,8 +188,6 @@ class simulation: # need a better name
             for dsname in self.ds_list:
                 values[i] = int(dsname[-4:])
                 i = i + 1
-
-       
 
         return np.array(values)
           
@@ -116,14 +213,11 @@ class simulation: # need a better name
         self.params     = yaml.load(stream, Loader=Loader)
         self._define_param_units()
 
-        self.center = np.array( [ np.float(self.params['sim_xctr']),
-                                  np.float(self.params['sim_yctr']),
-                                  np.float(self.params['sim_zctr']) ])
-
-
     def _define_param_units(self):
         """
-        Damnit yt
+        Damnit yt..... loads in all probably relevant parameter file
+        names and assigns units to make working with yt things a little
+        bit easier...
         """
 
        # print "in define param units function"
@@ -143,7 +237,7 @@ class simulation: # need a better name
 
         density_params = ['sim_smallRho', 'sim_rhoAmbient', 'sim_rhoCloud',
                           'sim_rhoCenter', 'sim_rho1rm', 'sim_rho2rm',
-                          'sim_rhoRL']
+                          'sim_rhoRL','sim_rho_crit']
 
         time_params   = ['checkpointFileIntervalTime',
                          'particleFileIntervalTime',
@@ -155,30 +249,32 @@ class simulation: # need a better name
 
         speed_params       = ['sim_windVel', 'sim_flowSpeed']
 
+        mass_params        = ['sim_M200']
+
         param_dict = {'length': length_params, 'density': density_params,
                       'pressure': pressure_params,
                       'temperature': temperature_params,
-                      'speed'      : speed_params, 'time' : time_params}
+                      'speed'      : speed_params, 'time' : time_params,
+                      'mass': mass_params}
 
         units_dict = {'length': length_unit,
                       'density': density_unit,
                       'temperature': temp_unit,
                       'speed': speed_unit,
-                      'pressure': pressure_unit, 'time' : time_unit}
+                      'pressure': pressure_unit, 'time' : time_unit,
+                      'mass'    : mass_unit}
 
                
+        # now that everything is defined, load and assign all units
 
         for ptype in param_dict:
 
             # would like to do without this loop, but is really the only way
             # to be safe with catching exception if param is not in flash.par
             for pname in param_dict[ptype]:
-
-     
                 try:
                    self.params[pname] = np.float(self.params[pname])\
                                                              * units_dict[ptype]
-        
                 except KeyError:
                     print "Did not find parameter: " + pname    
                     pass
@@ -480,7 +576,7 @@ class dwarf:
 
         self.center = self.center    
                                        
-        self.radius = np.float( self.params['sim_RL'] )
+        #self.radius = np.float( self.params['sim_RL'] )
 
         if not rm == None:
             self.RM = rm
@@ -689,20 +785,99 @@ class dwarf:
 
 
 
-    
-
-
-def rps_param():
-    """ 
-    Calculate the ram pressure parameter
+def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
     """
-    rps = 20
+       Calculate the mass profile of the dwarf as a function of 
+       time. 
+    """
     
-    return rps
+    ds_list = sim.plt_list
     
-        
-        
+    if tmin == None:
+        tmin = 0.0 * yt.units.Myr
+    elif tmax == None:
+        tmax = 1.0E4 * yt.units.Myr
+
+    if len(T_range) == 2:
+        T_range = np.array(T_range)*yt.units.Kelvin
+
+
+    sim.dwarf_mass = {}
+    sim.dwarf_mass[mode] = np.ones(np.size(sim.time['plt']))*-1
+
+    # do only over select time range
+    ds_min  = np.argmin(sim.time['plt'] - tmin)
+    ds_max  = np.argmin(sim.time['plt'] - tmax)
+
+
+    file = open(out_file, 'w')
+    file.write("# t m\n")
+    format = "%8.8e %8.8e\n"
+    if mode == 'grav':
+        # calculate dwarf gas mass as total bound gas mass of dwarf
+        # 1) --- do over whole box! -- 
+        # 2) get thermal energy and kinetic energy in each cell.. sum..
+        # 3) get position in each cell (r) and compute the value 
+        #    of the potential
+        # 4) get mass in each cell
+        # 5) sum cell mass where   E_th + E_kin - m*Phi(r) < 0
+ 
+        i = 0
+        for dsname in ds_list[ds_min:ds_max]:
+            ds = yt.load(dsname); data = ds.all_data()
+            x = data['x'].convert_to_units('cm')
+            y = data['y'].convert_to_units('cm')
+            z = data['z'].convert_to_units('cm')  
+ 
+            mass      = data['dens'] * data['dx'] * data['dy'] * data['dz']        
+            mass = mass.convert_to_units('g')
+
+            E_kin = 0.5 * mass * (data['velx']**2 + data['vely']**2 + data['velz']**2)
+            E_kin = E_kin.convert_to_units('erg')
+
+            r = sim.dist_from_center(x,y,z)
+
+            phi       = sim.evaluate_potential(r)
+            U_grav    = mass * phi
+
+            if len(T_range) == 2:
+                T = data['temp'].convert_to_units('K')
+                total_mass = np.sum( mass[(E_kin<U_grav)*(T>T_range[0])*(T<T_range[1])] )
+           
+            else:
+                total_mass = np.sum(mass[(E_kin<U_grav)])
+
+            total_mass = total_mass.convert_to_units('Msun')
+           
+
+            sim.dwarf_mass[mode][i + ds_min] = total_mass
+            f.write(format%(ds.current_time.convert_to_units('Myr'),total_mass))
+            i = i + 1
     
+    elif mode == 'contained':
+        # calculate the total dwarf mass as just the total mass contained
+        # within the initial dwarf radius (with optional temperature cuts)
+        i = 0
+        for dsname in ds_list[ds_min:ds_max]:
+            ds = yt.load(dsname); data = ds.all_data()
+
+            sp = ds.sphere(sim.center,sim.radius)
+            mass = sp['dens'] * sp['dx'] * sp['dy'] * sp['dz']
+            
+            if len(T_range) == 2:
+                T = sp['temp'].convert_to_units('K')
+                total_mass = np.sum(mass[(T >= T_range[0])*(T<=T_range[1])])
+
+
+            else:
+                total_mass = np.sum(mass)
+
+            sim.dwarf_mass[mode][i + ds_min] = total_mass
+            f.write(format%(ds.current_time.convert_to_units('Myr').value,total_mass.value))
+            i = i + 1
+
+    f.close()
+    return 
         
 
 
