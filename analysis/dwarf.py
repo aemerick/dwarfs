@@ -142,9 +142,9 @@ class simulation: # need a better name
         if exact == False:
             print "approximating time stamps from .par file"
             self.times['plt'] = self._get_ds_index(ds_type='plt')*\
-                            self.params['plotfileIntervalTime']*yt.units.s
+                            self.params['plotfileIntervalTime']
             self.times['chk'] = self._get_ds_index(ds_type ='chk')*\
-                            self.params['checkpointFileIntervalTime'] * yt.units.s
+                            self.params['checkpointFileIntervalTime']
         
             
         else:
@@ -241,6 +241,7 @@ class simulation: # need a better name
 
         time_params   = ['checkpointFileIntervalTime',
                          'particleFileIntervalTime',
+                         'plotfileIntervalTime',
                          'tmax', 'dtmin', 'dtmax',
                          'sblife','tsn1','tsn2','tsb']
 
