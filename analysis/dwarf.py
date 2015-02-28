@@ -873,7 +873,8 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
             r = sim.dist_from_center(x,y,z)
 
             phi       = sim.evaluate_potential(r)
-            U_grav    = mass * phi
+            U_grav    = np.abs(mass * phi)
+
 
             if len(T_range) == 2:
                 T = data['temp'].convert_to_units('K')
