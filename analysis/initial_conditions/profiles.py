@@ -7,6 +7,75 @@ from ic_generator import find_rm_gatto as find_rm
 from scipy import optimize as opt
 from scipy import integrate
 
+def NFW_potential(r, r_s = None, c=12., M200 =1.0E12*cgs.Msun,rho_crit = 9.74E-30):
+    """
+    Evaluates the NFW potential
+    """
+ 
+    R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
+
+    # scale radius is virial divided by c
+    if r_s == None:
+        r_s = R200 / c
+    else:
+        c = R200 / r_s
+
+    # the scale density is given as
+    rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
+
+    c_nfw = 4.0 * np.pi * cgs.G * rho_s * r_s**2
+    r = r / r_s
+    if np.size(r) > 1:
+        phi = np.zeros(np.size(r))
+        phi[r==0] = - c_nfw
+        phi[r>0 ] = - c_nfw * np.log(1.0 + r[r>0])/r[r>0]
+
+    else:
+        if r > 0:
+            phi = np.log(1.0+r)/r
+        elif r==0:
+            phi = 1.0
+
+        phi = phi * (- c_nfw)
+
+    return phi
+
+def Burkert_potential(r, r_s, M200, rho_crit=9.74E-30):
+    """
+    Evaluates the burkert potential at a point R
+    """
+    R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
+    R = R200/r_s
+
+    rho_o = M200/(4.0*np.pi*r_s**3) / (0.5*np.log(1+R) + 0.25* np.log(1+R**2)-\
+                               0.5*np.arctan(R))
+
+    
+    c_b = 4.0 * np.pi * cgs.G * r_s**2 * rho_o
+    r = r / r_s
+
+    if np.size(r) > 0:
+        phi = np.zeros(np.size(r))
+        phi[r==0] = 0.5 * c_b * (-np.pi/4.0 - 1.0)
+
+        R = r[r>0] 
+        phi[r>0] = 0.5 * c_b * (0.5 * np.log(1.0+R*R) + np.arctan(R) -\
+                                0.5*(np.log(1.0+R*R) + 2.0*np.log(1.0+R))/R -\
+                                np.log(1.0+R) - np.pi/4.0) 
+
+    else:
+        if r == 0:
+            phi = 0.5 * c_b * (-np.pi/4.0 - 1.0)
+
+        else:
+            phi = 0.5 * c_b * (0.5 * np.log(1.0+R*R) + np.arctan(R) -\
+                                0.5*(np.log(1.0+R*R) + 2.0*np.log(1.0+R))/R -\
+                                np.log(1.0+R) - np.pi/4.0)
+
+
+    return phi
+ 
+
 def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
     """
         Compute the dark matter density profile for a 
