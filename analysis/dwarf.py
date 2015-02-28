@@ -788,7 +788,8 @@ class dwarf:
 def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
     """
        Calculate the mass profile of the dwarf as a function of 
-       time. 
+       time. Can do this by either mass contained in the radius or
+       computing all gravitationally bound gas in the box
     """
     
     ds_list = sim.plt_list
