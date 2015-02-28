@@ -9,7 +9,8 @@
 import numpy as np
 from numpy import cos, sin, pi
 import matplotlib.pyplot as plt
-import astro.cgs as cgs
+#import astro.cgs as cgs
+import cgs as cgs
 
 # following from VDM&K 2103 II, Table 1, Column 3
 r_LMC = 50.1 

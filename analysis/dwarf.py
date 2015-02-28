@@ -859,6 +859,7 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
         print ds_min, ds_max
         i = 0
         for dsname in ds_list[ds_min:ds_max]:
+            print "DWARF ANALYSIS: Calculating mass for file %4i of %4i"%(i+ds_min + 1, ds_max-ds_min+1)
             ds = yt.load(dsname); data = ds.all_data()
             x = data['x'].convert_to_units('cm')
             y = data['y'].convert_to_units('cm')
