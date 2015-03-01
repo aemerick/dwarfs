@@ -2,6 +2,9 @@
 
 print "using cgs py"
 
+mu_neutral = 1.31
+mu_ionized = 0.60
+
 mu   = 0.6
 mp   = 1.67262E-24
 #mp   = 1.67262178e-24 # mass of proton, grams
