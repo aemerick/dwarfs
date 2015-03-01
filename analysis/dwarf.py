@@ -15,9 +15,9 @@ except ImportError:
     from yaml import Loader, Dumper
 
 
-# some functions for analysis
+# now import some of my own functions 
 from initial_conditions import profiles as prof
-
+import cgs as cgs
 
 class simulation: # need a better name
 
@@ -815,11 +815,46 @@ class dwarf:
 
 
 
-def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
+def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
+               neutral_temp = 2.0E4 * yt.units.Kelvin):
     """
-       Calculate the mass profile of the dwarf as a function of 
-       time. Can do this by either mass contained in the radius or
-       computing all gravitationally bound gas in the box
+       Calculate the gas mass of the dwarf as a function of 
+       time. Method set by mode to 'grav' or 'contained' for gravitationally
+       bound gas vs. total mass within dwarf radius. 'grav' assumes
+       neutral, primordial gas below neutral_temp and ionized, primordial
+       above. Assumes static, analytic potential for the DM halo with NO
+       self gravity of gas.
+
+    Parameters
+    ----------
+    sim : simulation class object
+        The simulation data set(s) to operate over
+    out_file : string
+        Filename/path to write results to. Printed out in two colums
+        time [Myr], mass [Msun]
+    tmin : float, optional
+        Beginning of time range to calculate over. If none, set to 0.0 Myr
+    tmax : float, optional
+        End of time range to calculate over. If none, set to 14 Gyr
+    mode : string, optional
+        Mass calulation mode to operate with. Options are 'grav' and
+        'contained'.
+        'grav': total mass of graviationally bound gas in the entire box
+        (defined as E_thermal + E_kinetic < U_grav). Computes gravitational
+        energy from analytic potentials implemented in "profiles.py". No
+        support for self gravitating / time variable potentials.
+        'contained': sums mass contained within initial dwarf radius
+        'contained_evolve': sums mass contained within evolving radius
+                     computed with dwarf.dwarf_radius function
+    T_range : 2 element list or array, optional
+        If supplied, performs a temperature cut, ignoring gas outside
+        the supplied range. Default, no cuts
+
+    neutral_temp : float with yt units kelvin, optional
+        Only used in 'grav'. Thermal energy depends on number density,
+        requiring value for mean molecular weight. Best case assumtion
+        is gas below neutral_temp is neutral (mu = 1.31), above ionized
+        mu = 0.6. Default 2.0E4 Kelvin.
     """
     
     ds_list = sim.plt_list
@@ -865,24 +900,42 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
             y = data['y'].convert_to_units('cm')
             z = data['z'].convert_to_units('cm')  
  
-            mass      = data['dens'] * data['dx'] * data['dy'] * data['dz']        
+            rho = data['dens']
+            mass      = rho * data['dx'] * data['dy'] * data['dz']        
             mass = mass.convert_to_units('g')
 
+            T = data['temp'].convert_to_units('K')
+
+            # kinetic energy
             E_kin = 0.5 * mass * (data['velx']**2 + data['vely']**2 + data['velz']**2)
             E_kin = E_kin.convert_to_units('erg')
 
-            r = sim.dist_from_center(x,y,z)
+            # thermal energy is calculated in an approximate matter since
+            # mu is NOT tracked / evolved in the simulation.... 
+            # if T < neutral temp, assume neutral and mu = 1.31
+            # if T > neutral temp, assume ionized and mu = 0.60
+            E_therm = 1.5 * mass * T 
+            E_therm = E_therm / yt.physical_constants.mass_hydrogen_cgs * yt.physical_constants.kboltz
+            E_therm[T <= neutral_temp] *= 1.0/cgs.mu_neutral
+            E_therm[T >  neutral_temp] *= 1.0/cgs.mu_ionized
 
+            E_therm = E_therm.convert_to_units('erg')
+
+            # total energy
+            E_tot = E_therm + E_kin
+
+            # calcualte gravitational potential energy
+            r = sim.dist_from_center(x,y,z)
             phi       = sim.evaluate_potential(r)
-            U_grav    = np.abs(mass * phi)
+            U_grav    = -1.0 * mass * phi
+            print "positive phi ", np.size(phi[phi>0])
 
 
             if len(T_range) == 2:
-                T = data['temp'].convert_to_units('K')
-                total_mass = np.sum( mass[(E_kin<U_grav)*(T>T_range[0])*(T<T_range[1])] )
+                total_mass = np.sum( mass[(E_tot<U_grav)*(T>T_range[0])*(T<T_range[1])] )
            
             else:
-                total_mass = np.sum(mass[(E_kin<U_grav)])
+                total_mass = np.sum(mass[(E_tot<U_grav)])
 
             total_mass = total_mass.convert_to_units('Msun')
            
