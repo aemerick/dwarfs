@@ -206,7 +206,7 @@ class dwarf_ic:
            f.close()
       
       
-    def SF_ic(sfr=1.0):
+   # def SF_ic(sfr=1.0):
     
     
     
