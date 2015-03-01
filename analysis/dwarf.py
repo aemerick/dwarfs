@@ -967,18 +967,41 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
     return 
         
 def dwarf_radius(sim, outfile, tmin=None, tmax=None, 
-                 mode = 'slice', density_limit=1.0E-26, nsample=12.0):
+                 mode = 'slice', density_limit=1.0E-26, nsample=12.0,
+                 dr_cell = 16.0, f_bound = 0.95, T_bound_limit = 2.0E4):
     """
     
         Compute the estimated dwarf galaxy radius at the supplied time
-        steps. The dwarf radius is calculated as the radius where gas
-        density is > density_limit
+        steps. Two modes are available 'slice' and 'grav'. 
 
+        'slice' takes 2D slices through dwarf center in each axis
+        ('x','y','z') and draws nsample equal length rays in each,
+        evenly spaced in angle. Radius is determined in each ray as the
+        farthest cell with density >= density_limit. Final radius is 
+        average over every ray in every axis (i.e. 3 * nsample rays).
+
+        'grav' computes the gas mass in a series ofspherical annuli
+        bound to the dwarf as a fraction of total gas mass in each annuli.
+        Radial seperation of annuli is controlled by dr_cell (dr_cell * median
+        grid cell size) to scale with resolution. Annuli are examined from 
+        closest to dwarf center outward, and radius is determined by first 
+        annulus with bound_mass / total_gas_mass < f_bound. The radius 
+        scales with chosen f_bound as r = (f_bound)*(r_upper - r_lower) + r_lower
+        where r_upper is outer edge of annulus, r_lower is lower edge. This way,
+        f_bound = 1 gives r_upper as radius, f_bound = 0 gives r_lower.
+        
+
+    Parameters
+    ----------
+    
     """
 
     if not hasattr(density_limit,'convert_to_units'):
         # assume units are supplied in cgs if not provided
-        density_limit *= yt.units.g / yt.units.cm**3
+        density_limit = density_limit* yt.units.g / yt.units.cm**3
+
+    if not hasattr(T_bound_limit,'convert_to_units'):
+        T_bound_limit = T_bound_limit * yt.units.Kelvin
 
     ds_list = sim.plt_list
 
@@ -1035,7 +1058,12 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
                     r_ray = r_ray.convert_to_units('cm')
                     dens  = ray['dens'].convert_to_units('g/cm**3')
     
-                    radius = np.max(r_ray[dens >= density_limit])
+                    rvals = r_ray[dens >= density_limit]
+                    if np.size(rvals) == 0:
+                        radius = 0.0 * yt.units.pc
+                    else:
+                        radius = np.max(rvals)
+
                     radius = radius.convert_to_units('pc')
                     sim.dwarf_radius[mode][i+ds_min] += radius
                 # end ray loop            
@@ -1047,10 +1075,147 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
             file.write(format%(ds.current_time.convert_to_units('Myr').value,radius.value))
             i = i + 1
 
+    elif mode == 'grav': # do x y and z slices of dwarf
+        # compute shell thickness 
+        rmax = 2.0 * sim.radius.convert_to_units('cm') # maximum ray distance
 
+        r_prev = sim.radius.convert_to_units('cm')
+
+        if f_bound == 1.0:
+            _myprint("f_bound CANNOT BE 1.... changing to 0.95")
+            f_bound = 0.95
+
+        i = 0
+        for dsname in ds_list[ds_min:ds_max]:
+           
+
+            _myprint("Calculating radius for file %4i of %4i"%(i+ds_min+1,ds_max-ds_min+1))
+            ds = yt.load(dsname)
+
+            # compute shell thickness as a function of resolution
+            # if resolution is too low, fix dr
+            sp = ds.sphere(sim.center,sim.radius)
+            dr = np.min([sim.radius.convert_to_units('cm').value * 0.01, dr_cell*np.median(sp['dx'].convert_to_units('cm').value)])
+            if not hasattr(dr, 'convert_to_units'):
+                dr = dr * yt.units.cm
+
+            # calculate radii of spheres
+            rmin = np.max([0.5*r_prev.convert_to_units('cm').value,np.min(sp['dx'].convert_to_units('cm').value)])
+            
+            sphere_radii  = np.arange(rmin*yt.units.cm, 2.0*r_prev.convert_to_units('cm'), dr)
+            if not hasattr(sphere_radii, 'convert_to_units'):
+                sphere_radii  = sphere_radii * yt.units.cm
+            
+            print dr.convert_to_units('pc')
+            print sphere_radii.convert_to_units('pc')
+            # initialize values of inner sphere....
+            # this method calculate bound mass in spherical shells...
+            #  outer sphere -inner sphere
+            # precalculating and saving inner sphere prevents
+            # calculating each sphere twice in the loop
+            sp = ds.sphere(sim.center, sphere_radii[0])
+            x = sp['x'].convert_to_units('cm')
+            y = sp['y'].convert_to_units('cm')
+            z = sp['z'].convert_to_units('cm')
+
+            rho = sp['dens']
+            mass      = rho * sp['dx'] * sp['dy'] * sp['dz']
+            mass = mass.convert_to_units('g')
+
+            T = sp['temp'].convert_to_units('K')
+
+            # kinetic energy
+            E_kin = 0.5 * mass * (sp['velx']**2 + sp['vely']**2 + sp['velz']**2)
+            E_kin = E_kin.convert_to_units('erg')
+            E_therm = mass * sp['eint'].convert_to_units('cm**2/s**2')
+
+            # total energy
+            E_tot = E_therm + E_kin
+
+            # calcualte gravitational potential energy
+            r = sim.dist_from_center(x,y,z)
+            phi       = sim.evaluate_potential(r)
+            U_grav    = -1.0 * mass * phi
+            T_cold = (T<=T_bound_limit)
+            mass = mass[T_cold]
+            E_tot = E_tot[T_cold]
+            U_grav = U_grav[T_cold]
+            # total mass and bound mass
+            prev_total_mass       = np.sum(mass)
+            prev_total_bound_mass = np.sum(mass[E_tot<U_grav]) 
+
+            j = 1
+            grav_bound = True
+            # for max interations or until some fraction of total mass
+            # is not bound
+            while (j < np.size(sphere_radii)) and (grav_bound):
+
+                sp = ds.sphere(sim.center, sphere_radii[j])
+                x = sp['x'].convert_to_units('cm')
+                y = sp['y'].convert_to_units('cm')
+                z = sp['z'].convert_to_units('cm')
+  
+                rho = sp['dens']
+                mass      = rho * sp['dx'] * sp['dy'] * sp['dz']
+                
+                mass = mass.convert_to_units('g')
+
+                T = sp['temp'].convert_to_units('K')
+   
+                # kinetic energy
+                E_kin = 0.5 * mass * (sp['velx']**2 + sp['vely']**2 + sp['velz']**2)
+                E_kin = E_kin.convert_to_units('erg')
+                E_therm = mass * sp['eint'].convert_to_units('cm**2/s**2')
+
+                # total energy
+                E_tot = E_therm + E_kin
+    
+                # calcualte gravitational potential energy
+                r = sim.dist_from_center(x,y,z)
+                phi       = sim.evaluate_potential(r)
+                U_grav    = -1.0 * mass * phi
+
+                T_cold = (T<=T_bound_limit)
+                mass = mass[T_cold]
+                E_tot = E_tot[T_cold]
+                U_grav = U_grav[T_cold]
+
+                total_mass       = np.sum(mass)
+                total_bound_mass = np.sum(mass[E_tot<U_grav])
+ 
+                fractional = np.abs(total_bound_mass - prev_total_bound_mass) / prev_total_bound_mass
+                #print total_bound_mass , total_mass
+                # check to see what fraction is bound
+                if ((total_bound_mass - prev_total_bound_mass) <\
+                       f_bound * (total_mass - prev_total_mass)) or\
+                       (fractional < 1.0E-6):
+                    grav_bound = False
+#                    print '-----',radius, j
+                    # instead of taking midpoint of unbound shell, choose 
+                    # dwarf radius depending on how strict f_bound is (i.e. if 
+                    # f_bound = 1.0, dwarf radius is radius of inner sphere, if 
+                    # f_bound = 0.5, radius is halfway between inner and outer
+                    if fractional < 1.0E-6:
+                        radius = sphere_radii[j-1]
+                    else:
+                        radius     = (f_bound)*(sphere_radii[j] - sphere_radii[j-1]) + sphere_radii[j-1]
+
+#                    print '-----',radius,j
+                prev_total_bound_mass = total_bound_mass
+                prev_total_mass       = total_mass
+                j = j + 1
+            # end shell loop
+
+            # save to array and dict
+            sim.dwarf_radius[mode][i + ds_min] = radius.convert_to_units('pc')
+            file.write(format%(ds.current_time.convert_to_units('Myr').value,radius.value))
+
+            r_prev = radius
+            i = i + 1
+        # end loop over ds files
 
     file.close()
-    return 0
+    return 
 
 
         
