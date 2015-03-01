@@ -18,6 +18,10 @@ except ImportError:
 # now import some of my own functions 
 from initial_conditions import profiles as prof
 import cgs as cgs
+#from dwarf_yt_functions import derived_fields
+
+
+
 
 class simulation: # need a better name
 
@@ -92,13 +96,7 @@ class simulation: # need a better name
         # define the radius using the cloud temperature
         self._find_radius()
 
-        
-
-        # compute (roughly) t at each checkpoint file
-
-#        print self._get_ds_index()
-#        print self.params['checkpointFileIntervalTime']
-
+        # load the simulation times 
         self._load_times(exact_times)
 
     def _find_radius(self):
@@ -164,12 +162,11 @@ class simulation: # need a better name
         BE COMPLETELY ACCURATE IF dt DURING SIMULATION IS 
         LARGE.
         """
-#        print "approximating time stamps from .par file"
 
         self.times = {}
 
         if exact == False:
-            print "approximating time stamps from .par file"
+            _myprint("WARNING - approximating time stamps from .par file")
             self.times['plt'] = self._get_ds_index(ds_type='plt')*\
                             self.params['plotfileIntervalTime']
             self.times['chk'] = self._get_ds_index(ds_type ='chk')*\
@@ -224,7 +221,6 @@ class simulation: # need a better name
     def _load_param_file(self):
     
         newfile = self.ds_dir + self.param_file + ".mod"
-        # os.system("cp " + param_file + " " + newfile)
 
         # convert = to : and save to new file
         bash_command = "sed 's/=/:/g' " + self.param_file + " > " + newfile
@@ -238,6 +234,7 @@ class simulation: # need a better name
         bash_command = "sed -i '/^$/d' " + newfile
         os.system(bash_command)
     
+        # load the params from the new file and define units
         stream = open(newfile, 'r')
         self.params     = yaml.load(stream, Loader=Loader)
         self._define_param_units()
@@ -249,8 +246,7 @@ class simulation: # need a better name
         bit easier...
         """
 
-       # print "in define param units function"
-
+        # for cleanliness, compile unit types first
         length_unit = yt.units.cm
         temp_unit   = yt.units.Kelvin
         time_unit   = yt.units.s
@@ -259,6 +255,7 @@ class simulation: # need a better name
         pressure_unit = mass_unit / length_unit / time_unit**2
         density_unit  = mass_unit / length_unit**3
 
+        # make lists of parameters to assign units to, grouped by unit type
         length_params = ['sim_xctr','sim_yctr', 'sim_zctr', 'sim_RL',
                          'sim_bparam', 'sim_wTaper', 'sim_rScale',
                          'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax']
@@ -281,6 +278,7 @@ class simulation: # need a better name
 
         mass_params        = ['sim_M200']
 
+        # dicts to associate units with above lists of variables
         param_dict = {'length': length_params, 'density': density_params,
                       'pressure': pressure_params,
                       'temperature': temperature_params,
@@ -306,27 +304,25 @@ class simulation: # need a better name
                    self.params[pname] = np.float(self.params[pname])\
                                                              * units_dict[ptype]
                 except KeyError:
-                    print "Did not find parameter: " + pname    
+                    _myprint("[INIT] Did not find parameter: " + pname)
                     pass
                
 
 
     def _load_SN_data(self):
   
-        print "this function will load supernova info if it exists"
+        _myprint("[INIT] Looking for supernova files")
 
         sn_path = self.ds_dir + "SNfeedback.dat"
 
         if not os.path.isfile(sn_path):
             self.SNdata = None
-            print "No supernova feedback file found at " + sn_path
+            _myprint("[INIT] No supernova feedback file found at " + sn_path)
             return
  
-        # load the file here
-        #SN_data = np.genfromtxt(sn_path, names=True)
+        # load the file here.. use the supernova class
         self.SN = SN(sn_path, center = self.center)
         
-
 
     def _load_SB_data(self):
 
@@ -334,10 +330,10 @@ class simulation: # need a better name
 
         if not os.path.isfile(sb_path):
             self.SBdata = None
-            print "No SB feedback file found at " + sb_path
+            _myprint("[INIT] No SB feedback file found at " + sb_path)
             return
 
-        # load superbubble data
+        # load superbubble data using superbubble class
         self.SB = SB(sb_path, center = self.center)     
 
         
@@ -914,12 +910,13 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
             # mu is NOT tracked / evolved in the simulation.... 
             # if T < neutral temp, assume neutral and mu = 1.31
             # if T > neutral temp, assume ionized and mu = 0.60
-            E_therm = 1.5 * mass * T 
-            E_therm = E_therm / yt.physical_constants.mass_hydrogen_cgs * yt.physical_constants.kboltz
-            E_therm[T <= neutral_temp] *= 1.0/cgs.mu_neutral
-            E_therm[T >  neutral_temp] *= 1.0/cgs.mu_ionized
-
-            E_therm = E_therm.convert_to_units('erg')
+#            E_therm = 1.5 * mass * T 
+#            E_therm = E_therm / yt.physical_constants.mass_hydrogen_cgs * yt.physical_constants.kboltz
+#            E_therm[T <= neutral_temp] *= 1.0/cgs.mu_neutral
+#            E_therm[T >  neutral_temp] *= 1.0/cgs.mu_ionized
+#
+#            E_therm = E_therm.convert_to_units('erg')
+            E_therm = mass * data['eint'].convert_to_units('cm**2/s**2')
 
             # total energy
             E_tot = E_therm + E_kin
@@ -977,6 +974,8 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None, density_limit=1.0E-26):
         density is > density_limit
 
     """
+
+    
 
     return 0
 
