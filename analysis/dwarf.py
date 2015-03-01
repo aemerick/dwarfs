@@ -221,9 +221,10 @@ class simulation: # need a better name
     def _load_param_file(self):
     
         newfile = self.ds_dir + self.param_file + ".mod"
-
+        oldfile = self.ds_dir + self.param_file
+        
         # convert = to : and save to new file
-        bash_command = "sed 's/=/:/g' " + self.param_file + " > " + newfile
+        bash_command = "sed 's/=/:/g' " + oldfile+ " > " + newfile
         os.system(bash_command)
 
         # remove all comments
