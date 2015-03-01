@@ -877,9 +877,8 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
     file = open(out_file, 'w')
     file.write("# t m\n")
     format = "%8.8e %8.8e\n"
-    print mode
     if mode == 'grav':
-        print 'calculating'
+
         # calculate dwarf gas mass as total bound gas mass of dwarf
         # 1) --- do over whole box! -- 
         # 2) get thermal energy and kinetic energy in each cell.. sum..
@@ -888,7 +887,7 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
         # 4) get mass in each cell
         # 5) sum cell mass where   E_th + E_kin - m*Phi(r) < 0
  
-        print ds_min, ds_max
+
         i = 0
         for dsname in ds_list[ds_min:ds_max]:
             _myprint("Calculating mass for file %4i of %4i"%(i+ds_min + 1, ds_max-ds_min+1))
