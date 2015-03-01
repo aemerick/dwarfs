@@ -870,7 +870,7 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
     
     # do only over select time range
     ds_min  = np.argmin(np.abs((sim.times['plt'] - tmin).value))
-    ds_max  = np.argmin(np.abs((sim.times['plt'] - tmax).value))
+    ds_max  = np.argmin(np.abs((sim.times['plt'] - tmax).value)) + 1
 
 
     file = open(out_file, 'w')
@@ -966,7 +966,8 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
     file.close()
     return 
         
-def dwarf_radius(sim, outfile, tmin=None, tmax=None, density_limit=1.0E-26):
+def dwarf_radius(sim, outfile, tmin=None, tmax=None, 
+                 mode = 'slice', density_limit=1.0E-26, nsample=12.0):
     """
     
         Compute the estimated dwarf galaxy radius at the supplied time
@@ -975,8 +976,80 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None, density_limit=1.0E-26):
 
     """
 
-    
+    if not hasattr(density_limit,'convert_to_units'):
+        # assume units are supplied in cgs if not provided
+        density_limit *= yt.units.g / yt.units.cm**3
 
+    ds_list = sim.plt_list
+
+    if tmin == None:
+        tmin = 0.0 * yt.units.Myr
+    if tmax == None:
+        tmax = 1.0E4 * yt.units.Myr
+
+
+    sim.dwarf_radius = {}
+    sim.dwarf_radius[mode] = np.ones(np.size(sim.times['plt']))*-1 * yt.units.pc
+
+
+    # do only over select time range
+    ds_min  = np.argmin(np.abs((sim.times['plt'] - tmin).value))
+    ds_max  = np.argmin(np.abs((sim.times['plt'] - tmax).value)) + 1
+
+    file = open(outfile, 'w')
+    file.write("# t r\n")
+    format = "%8.8e %8.8e\n"
+
+    if mode == 'slice': # do x y and z slices of dwarf
+        rmax = 2.0 * sim.radius.convert_to_units('cm') # maximum ray distance
+
+        theta = np.arange(0.0, 2.0*np.pi, 2.0*np.pi / (1.0*nsample))
+
+        i = 0
+        for dsname in ds_list[ds_min:ds_max]:
+            _myprint("Calculating radius for file %4i of %4i"%(i+ds_min+1,ds_max-ds_min+1))
+            ds = yt.load(dsname)
+
+            sim.dwarf_radius[mode][i + ds_min] = 0.0 * yt.units.pc # initialize
+            for slice_axis in ['x','y','z']:
+                i_vals = np.ones(nsample); j_vals = np.ones(nsample); k_vals=np.ones(nsample)
+            
+                if slice_axis == 'x':
+                    j_vals = np.cos(theta)
+                    k_vals = np.sin(theta)
+                elif slice_axis == 'y':
+                    i_vals = np.cos(theta)
+                    k_vals = np.sin(theta)
+                elif slice_axis == 'z':
+                    i_vals = np.cos(theta)
+                    j_vals = np.sin(theta)
+
+                # make array of final positions
+                final_pos = rmax * np.array([i_vals, j_vals, k_vals])
+                final_pos = final_pos.transpose()
+  
+                # now loop over ray drawing
+                for fp in final_pos:
+                    ray = ds.ray(sim.center, fp)
+                    r_ray = ray['t'] * np.sqrt(np.sum(ray.vec**2))
+                    r_ray = r_ray.convert_to_units('cm')
+                    dens  = ray['dens'].convert_to_units('g/cm**3')
+    
+                    radius = np.max(r_ray[dens >= density_limit])
+                    radius = radius.convert_to_units('pc')
+                    sim.dwarf_radius[mode][i+ds_min] += radius
+                # end ray loop            
+            
+                
+            # end slice loop
+            # average over number of slices
+            sim.dwarf_radius[mode][i + ds_min] *= 1.0 / (nsample*3.0)
+            file.write(format%(ds.current_time.convert_to_units('Myr').value,radius.value))
+            i = i + 1
+
+
+
+    file.close()
     return 0
 
 
@@ -987,3 +1060,7 @@ def _myprint(string):
     """
     print "DWARF ANALYSIS : " + string
     return
+
+
+#def analytic_RPS():
+
