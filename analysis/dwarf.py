@@ -916,7 +916,18 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[]):
     file.close()
     return 
         
+def dwarf_radius(sim, outfile, tmin=None, tmax=None, density_limit=1.0E-26):
+    """
+    
+        Compute the estimated dwarf galaxy radius at the supplied time
+        steps. The dwarf radius is calculated as the radius where gas
+        density is > density_limit
 
+    """
+
+
+
+    return 0
 
 
         
