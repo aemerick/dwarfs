@@ -4,6 +4,8 @@ import numpy as np
 import yt
 import glob
 
+import matplotlib.pyplot as plt
+
 from yt import units as u
 from plotting import plotTools as myplot # some convenience plotting tools
 
@@ -418,8 +420,8 @@ class SNSB:
         fig = plt.figure()
         ax  = fig.add_subplot(111, projection='3d')
 
-        posx, posy, posz = self._recenter()
-        ax.scatter(posx.value, posy.value, posz.value, kwargs)
+        posx, posy, posz = self._recenter_pos()
+        ax.scatter(posx, posy, posz, **kwargs)
 
         return fig, ax
 
@@ -428,15 +430,15 @@ class SNSB:
         returns coordinates in the frame of sim center (the dwarf)
         """
   
-        return self.data['posx'] - self.center[0],\
-               self.data['posy'] - self.center[1],\
-               self.data['posz'] - self.center[2]
+        return self.data['posx'] - self.center[0].value,\
+               self.data['posy'] - self.center[1].value,\
+               self.data['posz'] - self.center[2].value
 
     def _set_units(self):
-        self.data['time']   *=  u.s
-        self.data['posx']   *= u.cm
-        self.data['posy']   *= u.cm
-        self.data['posz']   *= u.cm
+        self.data['time']   = self.data['time']*  u.s
+        self.data['posx']   = self.data['posx']*  u.cm
+        self.data['posy']   = self.data['posy']*  u.cm
+        self.data['posz']   = self.data['posz']*  u.cm
     
 
 
@@ -461,24 +463,22 @@ class SN(SNSB):
         sets yt units for the data values that have units. 
         calls parent function for shared values 
         """
- #       self.data['time']   *=  u.s
- #       self.data['posx']   *= u.cm
- #       self.data['posy']   *= u.cm
- #       self.data['posz']   *= u.cm
+
         SNSB._set_units(self)
-        self.data['radius'] *= u.cm
-        self.data['mass']   *=  u.g
+        _myprint( "trying to set units in supernova")
+        self.data['radius'] = self.data['radius']* yt.units.cm
+        self.data['mass']   = self.data['mass']  * yt.units.g
     
 
     def plot_positions(self, draw_radius = False, **kwargs):
 
-        fig, ax = SNSB.plot_positions(self,kwargs)
+        fig, ax = SNSB.plot_positions(self, **kwargs)
  
         if draw_radius:
 
             sn_spheres = []
 
-            posx, posy, posz = self._recenter()
+            posx, posy, posz = self._recenter_pos()
             i = 0
             for r in self.data['radius']:
                 x,y,z = posx[i], posy[i], posz[i]
@@ -515,9 +515,9 @@ class SB(SNSB):
         """
         SNSB._set_units(self)
         
-        self.data['velx'] *= u.cm / u.s
-        self.data['vely'] *= u.cm / u.s
-        self.data['velz'] *= u.cm / u.s
+        self.data['velx'] = self.data['velx'] * u.cm / u.s
+        self.data['vely'] = self.data['vely'] * u.cm / u.s
+        self.data['velz'] = self.data['velz'] * u.cm / u.s
 
     def _load_creation_data(self):
         """
@@ -1072,7 +1072,7 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
             # end slice loop
             # average over number of slices
             sim.dwarf_radius[mode][i + ds_min] *= 1.0 / (nsample*3.0)
-            file.write(format%(ds.current_time.convert_to_units('Myr').value,radius.value))
+            file.write(format%(ds.current_time.convert_to_units('Myr').value,sim.dwarf_radius[mode][i+ds_min].value))
             i = i + 1
 
     elif mode == 'grav': # do x y and z slices of dwarf
