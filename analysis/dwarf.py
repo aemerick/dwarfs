@@ -894,7 +894,7 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
         print ds_min, ds_max
         i = 0
         for dsname in ds_list[ds_min:ds_max]:
-            print "DWARF ANALYSIS: Calculating mass for file %4i of %4i"%(i+ds_min + 1, ds_max-ds_min+1)
+            _myprint("Calculating mass for file %4i of %4i"%(i+ds_min + 1, ds_max-ds_min+1))
             ds = yt.load(dsname); data = ds.all_data()
             x = data['x'].convert_to_units('cm')
             y = data['y'].convert_to_units('cm')
@@ -928,8 +928,6 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
             r = sim.dist_from_center(x,y,z)
             phi       = sim.evaluate_potential(r)
             U_grav    = -1.0 * mass * phi
-            print "positive phi ", np.size(phi[phi>0])
-
 
             if len(T_range) == 2:
                 total_mass = np.sum( mass[(E_tot<U_grav)*(T>T_range[0])*(T<T_range[1])] )
@@ -949,6 +947,8 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
         # within the initial dwarf radius (with optional temperature cuts)
         i = 0
         for dsname in ds_list[ds_min:ds_max]:
+            _myprint("Calculating mass for file %4i of %4i"%(i+ds_min+1,ds_max-ds_min+1))
+            
             ds = yt.load(dsname); data = ds.all_data()
 
             sp = ds.sphere(sim.center,sim.radius)
@@ -978,9 +978,13 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None, density_limit=1.0E-26):
 
     """
 
-
-
     return 0
 
 
         
+def _myprint(string):
+    """
+        special print function just to prepend some text before every print
+    """
+    print "DWARF ANALYSIS : " + string
+    return
