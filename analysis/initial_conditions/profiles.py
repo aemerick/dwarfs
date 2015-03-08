@@ -189,7 +189,6 @@ def decay_function(r, r_decay, r_vir, r_s, potential_type):
         alpha, beta, gamma = 1.0,3.0,1.0
 
     epsilon = 1.0   
-#    epsilon = (-gamma - beta*(r/r_s
 
     return (r/r_vir)**epsilon * np.exp(-(r-r_vir)/r_decay)
 
@@ -208,16 +207,12 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
 
     rho_DM = 3.0* M200/(4.0*np.pi*r_s**3) /(1.5* (np.log(1+R) + 0.5* np.log(1+R**2)-\
                                 np.arctan(R)))
-    print "calc burkert rho DM", rho_DM, R200, M200, r_s, rho_crit
     rho_o = n_o * cgs.mp * mu
 
     # constant in exponential from gas properties
     C_gas = mu * cgs.mp / (cgs.kb * T)  
     # constant in exp from DM profile
     D_B = 4.0*np.pi*cgs.G*rho_DM*r_s**2
-
-    print "rhoDM   cgas    dB   R200"
-    print rho_DM, C_gas, D_B, R200
 
     # R is the unitless radisu
     R = r / r_s
@@ -241,12 +236,6 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
 
     rho = rho_o * rho
    
-
-# OLD PROFILE FROM INCORRECT DM PROFILE
-#    rho = rho_o * np.exp(- C_gas * D_B * (0.0 +\
-#                              0.5*np.log(1.0 + (r/r_s)**2) + \
-#                              np.arctan(r/r_s)/(r/r_s)))
-
     return rho
 
 
@@ -271,29 +260,21 @@ def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
         c = R200 / r_s
 
 
-  #  print "c = ", c, "R200 = ", R200, "r_s = ", r_s 
-  #  print "R200 = ", R200/cgs.kpc, " kpc -- r_s = ", r_s/cgs.pc, " pc"
-        
     # scale density for the DM halo
     rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
 
     # constant in the exponential
     C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu *cgs.mp/(cgs.kb*T)
 
-   # print "pi, G, rho_s, r_s, mu, mp, kb, T"
-    #print "params:", np.pi, cgs.G, rho_s, r_s, mu, cgs.mp, cgs.kb, T
-    #print "C_NFW = ", C_NFW
     # central mass density 
     rho_o = n_o * cgs.mp * mu
-    #print "rho_o = ", rho_o, "M200 = ", M200
+
     # gas profile
 
     rho = np.zeros(np.size(r))
     rho[0]   = rho_o
     rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
 
-  #  RM=    find_rm(rho_o, C_NFW, r_s, Pcorona, cgs.kb/(mu*cgs.mp)*T)
-   # print "RM = ", RM, RM/cgs.pc
     RM = 0.0
     return rho, RM
 
@@ -317,32 +298,21 @@ def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     elif c == None:
         c = R200 / r_s
 
-    print "c = ", c, "R200 = ", R200, "r_s = ", r_s
-    print "R200 = ", R200/cgs.kpc, " kpc -- r_s = ", r_s/cgs.pc, " pc"
-
     # scale density for the DM halo
     rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
 
     # constant in the exponential
     C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu *cgs.mp/(cgs.kb*T)
 
-    print "pi, G, rho_s, r_s, mu, mp, kb, T"
-    print "params:", np.pi, cgs.G, rho_s, r_s, mu, cgs.mp, cgs.kb, T
-    print "C_NFW = ", C_NFW
     # central mass density 
     n_o = (Pcorona/cgs.kb) / T
     n_o = n_o * np.exp(C_NFW * (1.0 - np.log(1.0+rmatch/r_s)/(rmatch/r_s)))
     rho_o = n_o * cgs.mp * mu
-    print "n_o   = ", n_o
-    print "rho_o = ", rho_o, "M200 = ", M200
-    # gas profile
 
+    # gas profile
     rho = np.zeros(np.size(r))
     rho[0]   = rho_o
     rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
-
-#    RM=    find_rm(rho_o, C_NFW, r_s, Pcorona, cgs.kb/(mu*cgs.mp)*T)
-#    print "RM = ", RM, RM/cgs.pc
 
     RM = rmatch
     return rho, RM
@@ -362,24 +332,19 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
     f_M = lambda x : 1.5* (0.5*np.log(1.0 + x**2) +\
                      np.log(1.0 + x)  -\
                      np.arctan(x) )
-    print np.log(1+R**2), np.log(1.0+R), np.arctan(R), np.arctan2(r_DM,r_s)
+    
+    
+
     rho_DM = (M_DM / f_M(R)) * (3.0/(4.0*np.pi)) / (r_s**3)
  
+    # Solve the profile for radius with average density equal to
+    # 200 * rho_crit (i.e. solve for R200) 
+    eq_solve = lambda x : (rho_DM)*f_M(x)/(x**3)-200.0*rho_crit
 
+    R200 = r_s * opt.bisect(eq_solve, .1, 10000.0, xtol=1.0E-12)
 
-    # solve the burkert density profile at (R200,200*rho_crit)
-    eq_solve = lambda x : (200.0*rho_crit)*((1.0+x)*(1.0+x*x)) - rho_DM
-
-    # find the rot of the Eq. (x = R200 / r_s)
-    R200 = r_s * opt.bisect(eq_solve, 2.0, 50.0, xtol=1.0E-15)
-    M200 = 4.0*np.pi*rho_DM/3.0 * r_s**3 * 1.5 * f_M(R200/r_s)
-    print "solve burkert rho DM", rho_DM, R200, M200,  r_s, rho_crit
+    M200 = 4.0*np.pi/3.0  * (200.0*rho_crit) * R200**3
     R = R200/r_s
-    print np.log(1+R**2), np.log(1.0+R), np.arctan(R), np.arctan2(R200,r_s)
-
-    print "----",  M200/(f_M(R)) * (3.0/(4.0*np.pi)) / (r_s**3)
-    print f_M
-    print R200/r_s
 
     # we now have M200 and r_s, which defines the DM profile
     # now, find n_o / rho_o to define the gas density profile
@@ -397,9 +362,6 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
               (0.25*np.log(1.0+x**2) + 0.5*np.arctan(x) - 0.25*np.log(1.+x**2)/x -\
               0.50*np.log(1.0+x)/x  -0.5*np.log(1.0+x) + 0.5))
 
- 
-#            val = np.exp(-C_g * D_B *(1.0 + 0.5*np.log(1.+x**2)-\
-#                                      np.arctan(x)/x))
         else:
             val = 1.0
 
@@ -411,9 +373,6 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
     rho_o = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
     n_o = rho_o / (mu_dwarf * cgs.mp)
 
-#    density = lambda r: rho_o * np.exp(-C_g * D_B * (1.0+\
-#                                0.5*np.log(1.0+(r/r_s)**2)-\
-#                                np.arctan(r/r_s)/(r/r_s)))
     density = lambda r: Burkert_isothermal_gas(r, r_s, M200, T_dwarf,
                                                n_o, mu=mu_dwarf)
 
