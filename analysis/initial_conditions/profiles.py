@@ -47,8 +47,8 @@ def Burkert_potential(r, r_s, M200, rho_crit=9.74E-30):
     R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
     R = R200/r_s
 
-    rho_o = M200/(4.0*np.pi*r_s**3) / (0.5*np.log(1+R) + 0.25* np.log(1+R**2)-\
-                               0.5*np.arctan(R))
+    rho_o = 3.0*M200/(4.0*np.pi*r_s**3) / (1.5*(np.log(1+R) + 0.5*np.log(1+R**2)-\
+                               np.arctan(R)))
 
     
     c_b = 4.0 * np.pi * cgs.G * r_s**2 * rho_o
@@ -76,7 +76,8 @@ def Burkert_potential(r, r_s, M200, rho_crit=9.74E-30):
     return phi
  
 
-def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
+def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30,
+              decay=False, r_decay=None):
     """
         Compute the dark matter density profile for a 
         NFW halo. Taking the scale as R200/c
@@ -96,6 +97,12 @@ def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
         rho_crit : float, optional
             Critical density of the universe. This is a function of 
             redshift. Default 9.74E-30 (z = 0)
+        decay : bool, optional
+            If True, includes exponential decay at r > r_200 from 
+            Springel & White 1999. Default False
+        r_decay : float, optional
+            Exponential decay scale radius. Default is None and set
+            to 0.1 R_vir (only used when decay is True)            
     """
 
     R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
@@ -109,9 +116,15 @@ def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30):
     # the scale density is given as
     rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
 
-    return rho_s / ( (r/r_s)*(1+r/r_s)**2)
+    density = rho_s / ( (r/r_s)*(1+r/r_s)**2)
+
+    if decay:
+        if r_decay == None:
+            density[r > R200] = density[r > R200] * decay_function(r[r>R200],r_decay,R200,r_s,'NFW')
+
+    return density
     
-def burkert_DM(r, r_s, M200, rho_crit=9.74E-30):
+def burkert_DM(r, r_s, M200, rho_crit=9.74E-30, decay=False, r_decay=None):
     """
     Given the parameters, calculates the Burkert DM density
     profile from Burkert 1995.
@@ -127,6 +140,12 @@ def burkert_DM(r, r_s, M200, rho_crit=9.74E-30):
     rho_crit : float, optional
         Critical density of the universe in cgs. Default z = 0
         9.74E-30 g /cm^-3
+    decay : bool, optional
+        If True, includes exponential decay at r > r_200 from
+        Springel & White 1999. Default False
+    r_decay : float, optional
+        Exponential decay scale radius. Default is None and set
+        to 0.1 R_vir (only used when decay is True)
 
     Returns :
     rho : array
@@ -136,12 +155,43 @@ def burkert_DM(r, r_s, M200, rho_crit=9.74E-30):
     R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
     R = R200/r_s
 
-    rho_o = M200/(4.0*np.pi*r_s**3) / (0.5*np.log(1+R) + 0.25* np.log(1+R**2)-\
-                               0.5*np.arctan(R))
+    rho_o = 3.0*M200/(4.0*np.pi*r_s**3) / (1.5*(np.log(1+R) + 0.5* np.log(1+R**2)-\
+                               np.arctan(R)))
 
-#    rho_o = (R200/r_s)**2 * (200.0/3.0) * rho_crit    
+    density = rho_o/((1+r/r_s)*(1+(r/r_s)**2))
 
-    return rho_o/((1+r/r_s)*(1+(r/r_s)**2))
+    if decay:
+        if r_decay == None:
+            density[r > R200] = decay_function(r[r>R200],r_decay,R200,r_s,'Burkert')
+
+    return density
+
+
+def decay_function(r, r_decay, r_vir, r_s, potential_type):
+    """
+    Exponential decay function from Springel & White 1999 used to 
+    truncate the dark matter density function so M(r->infin) -> infin.
+    
+    Parameters:
+    -----------
+    r       : float, array
+        array of radii
+    r_decay : float
+        Decay scale radius 
+    potential_type : string
+        Name of potential type. This is important as scaling depends on
+        type of potential. Only NFW and Burkert work at the moment
+    """
+
+    if potential_type == 'NFW':
+        alpha, beta, gamma = 1.0,3.0,1.0
+    elif potential_type == 'Burkert':
+        alpha, beta, gamma = 1.0,3.0,1.0
+
+    epsilon = 1.0   
+#    epsilon = (-gamma - beta*(r/r_s
+
+    return (r/r_vir)**epsilon * np.exp(-(r-r_vir)/r_decay)
 
 
 def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
@@ -156,9 +206,9 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     # central dark matter denisty
     R = R200/r_s
 
-    rho_DM = M200/(4.0*np.pi*r_s**3) / (0.5*np.log(1+R) + 0.25* np.log(1+R**2)-\
-                               0.5*np.arctan(R))
-
+    rho_DM = 3.0* M200/(4.0*np.pi*r_s**3) /(1.5* (np.log(1+R) + 0.5* np.log(1+R**2)-\
+                                np.arctan(R)))
+    print "calc burkert rho DM", rho_DM, R200, M200, r_s, rho_crit
     rho_o = n_o * cgs.mp * mu
 
     # constant in exponential from gas properties
@@ -308,17 +358,28 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
     """
 
     # find central density using notation in Faerman et. al. 2013 
-    f_M = 1.5 * (0.5*np.log(1+(r_DM/r_s)**2) +\
-                     np.log(1.0+(r_DM/r_s))  -\
-                     np.arctan(r_DM/r_s))
-    rho_DM = (M_DM / f_M) * (3.0/(4.0*np.pi)) / (r_s**3)
+    R = r_DM/r_s
+    f_M = lambda x : 1.5* (0.5*np.log(1.0 + x**2) +\
+                     np.log(1.0 + x)  -\
+                     np.arctan(x) )
+    print np.log(1+R**2), np.log(1.0+R), np.arctan(R), np.arctan2(r_DM,r_s)
+    rho_DM = (M_DM / f_M(R)) * (3.0/(4.0*np.pi)) / (r_s**3)
+ 
+
 
     # solve the burkert density profile at (R200,200*rho_crit)
-    eq_solve = lambda x : (200.0*rho_crit/rho_DM)*((1.0+x)*(1.0+x*x)) - 1.0
+    eq_solve = lambda x : (200.0*rho_crit)*((1.0+x)*(1.0+x*x)) - rho_DM
 
     # find the rot of the Eq. (x = R200 / r_s)
-    R200 = r_s * opt.bisect(eq_solve, 0.0, 100.0)
-    M200 = 4.0/3.0 * np.pi * R200**3 * rho_crit * 200.0
+    R200 = r_s * opt.bisect(eq_solve, 2.0, 50.0, xtol=1.0E-15)
+    M200 = 4.0*np.pi*rho_DM/3.0 * r_s**3 * 1.5 * f_M(R200/r_s)
+    print "solve burkert rho DM", rho_DM, R200, M200,  r_s, rho_crit
+    R = R200/r_s
+    print np.log(1+R**2), np.log(1.0+R), np.arctan(R), np.arctan2(R200,r_s)
+
+    print "----",  M200/(f_M(R)) * (3.0/(4.0*np.pi)) / (r_s**3)
+    print f_M
+    print R200/r_s
 
     # we now have M200 and r_s, which defines the DM profile
     # now, find n_o / rho_o to define the gas density profile
