@@ -241,7 +241,7 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                             'Leo_T_burkert':
                             {'T_dwarf' : 6.0E3,
                              'M200'   : 0.979796E7 * cgs.Msun,
-                             'b'    : 708.627233 * cgs.pc, 
+                             'b'    : 472.4 * cgs.pc, 
                              'T_halo' : 8.0E5,
                              'n_halo' : 4.6E-5,
                              'n_o'    : 1.6954E-3,
@@ -254,7 +254,7 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                              'r_DM': 300.*cgs.pc, 'r_HI':300.0*cgs.pc,
                              'M_HI' : 2.8E5*cgs.Msun,
                        #      'b'    : 708.627233*cgs.pc,
-                             'r_s' : 708*cgs.pc,
+                             'r_s' : 472.4*cgs.pc,
                              'n_halo': 4.5E-4,
                              #'T_halo' : 7.5E5, 
                              'potential_type':'Burkert'},  
