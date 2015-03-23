@@ -271,12 +271,17 @@ def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
 
     # gas profile
 
-    rho = np.zeros(np.size(r))
-    rho[0]   = rho_o
-    rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
+    if np.size(r) == 1:
+        if r == 0:
+            rho = rho_o
+        elif r > 0:
+            rho = rho_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
+    else:
+        rho = np.zeros(np.size(r))
+        rho[0]   = rho_o
+        rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
 
-    RM = 0.0
-    return rho, RM
+    return rho
 
 
 def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
@@ -523,7 +528,7 @@ def cumulative_mass(r, rho):
     
     return mass_enclosed
 
-def column_density(r, n, R = None, f_H = 0.73, f_ion = 0.0):
+def column_density(r, density_function,R = None, f_H = 0.73, f_ion = 0.0, **kwargs):
     """
        Calculates the column density of a radial number density profile
        assuming spherical symmetry. Assumes f_H = 0.73 and ionization fraction
@@ -534,12 +539,20 @@ def column_density(r, n, R = None, f_H = 0.73, f_ion = 0.0):
     if R == None:
         R = np.max(r)
     
-    n = n * f_H * (1.0 - f_ion)
+    HI_factor = f_H * (1.0 - f_ion)
     
-    l    = np.sqrt( R**2 - r**2)
-    N_HI = l*n
-    
-    return N_HI
+    integrand = lambda x,b : 2.0*x/np.sqrt(x**2-b**2) * density_function(x,**kwargs)
+
+    NHI = np.zeros(np.size(r)); i = 0
+    for bval in r:
+        
+        igrand = lambda x: integrand(x,bval)
+ 
+        NHI[i] = integrate.quad(igrand, 1.0000000001*bval, R)[1]
+        i = i + 1
+   
+    print R
+    return NHI * HI_factor
 
 def _run_test():
     Tcorona = 1.8E6
