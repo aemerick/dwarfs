@@ -68,9 +68,12 @@ def lower_bound_heating(r, n, T, T_heat_min=10.0, T_heat_max=2.0E4, **kwargs):
            Heat for T < T_heat_max. Default 2.0E4 K
            
     """
-    if r == 0.0:
-       r = np.zeros(np.shape(T))
-    
+    if np.size(r) == 0:
+       if r == 0.0:
+           r = np.zeros(np.shape(T))
+    if np.size(T) == 0 and np.size(r) > 0:
+        T = np.ones(np.shape(r)) * T
+
     total_rate = np.zeros(np.shape(T))
     if np.size(T) > 1:
         select = (T > T_heat_min) * (T < T_heat_max)    
