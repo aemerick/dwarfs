@@ -146,11 +146,14 @@ class dwarf_ic:
                                         
     def find_density_profile(self, r, type='NFW_isothermal'):
                
-        if type == 'NFW_isothermal':
+        if 'potential' in self.ic.keys():
+            type = self.ic['potential']
+
+        if type == 'NFW_isothermal' or type == 'NFW':
             function = prof.NFW_isothermal_gas
         
 
-            rho, RM = function(r, r_s=self.ic['b'],
+            rho = function(r, r_s=self.ic['b'],
                            M200=self.ic['M200'], T=self.ic['T_dwarf'], 
                            n_o = self.ic['n_o'], mu = self.ic['mu_dwarf'], 
                            rho_crit = self.ic['rho_crit'],
@@ -164,7 +167,7 @@ class dwarf_ic:
                            Pcorona = self.Pcorona)
 
 
-        elif type == 'Burkert_isothermal':
+        elif type == 'Burkert_isothermal' or type == 'Burkert':
             rho  = prof.Burkert_isothermal_gas(r, r_s=self.ic['b'],
                                  M200=self.ic['M200'], T=self.ic['T_dwarf'],
                                n_o = self.ic['n_o'], mu = self.ic['mu_dwarf'],
@@ -173,6 +176,33 @@ class dwarf_ic:
         self.rvals  = r
         self.rho    = rho
        # self.radius = RM
+
+    def column_density(self, r, type = 'NFW_isothermal', **kwargs):
+
+        if 'potential' in self.ic.keys():
+            type = self.ic['potential']
+
+        if type == 'Burkert_isothermal' or type == 'Burkert':
+            density_function = lambda x : prof.Burkert_isothermal_gas(x, r_s=self.ic['b'],
+                           M200=self.ic['M200'], T=self.ic['T_dwarf'],
+                           n_o = self.ic['n_o'], mu = self.ic['mu_dwarf'],
+                           rho_crit = self.ic['rho_crit'])/ (self.ic['mu_dwarf']*cgs.mp)
+
+            NHI = prof.column_density(r, density_function=density_function, **kwargs)
+
+
+        elif type == 'NFW_isothermal' or type == 'NFW':
+            density_function = lambda x : prof.NFW_isothermal_gas(x, r_s=self.ic['b'],
+                           M200=self.ic['M200'], T=self.ic['T_dwarf'],
+                           n_o = self.ic['n_o'], mu = self.ic['mu_dwarf'],
+                           rho_crit = self.ic['rho_crit'],
+                           Pcorona = self.Pcorona) / (self.ic['mu_dwarf']*cgs.mp)
+
+            NHI = prof.column_density(r, density_function=density_function, **kwargs)
+
+
+
+        self.NHI = NHI
 
 
     def FLASH_readable_ic(self,filename=None):
@@ -214,7 +244,8 @@ class dwarf_ic:
 
 
 known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
-                            {'n_o'  : 0.4, 'mu_dwarf' : 1.31,
+                            {'n_o'  : 0.4*1.36, 'mu_dwarf' : 1.297,
+                             'mu_halo' : 0.62,
                              'T_halo': 1.8E6, 'n_halo' : 1.7E-4,
                              'M_DM'  : 3.7E7 * cgs.Msun, 
                              'r_DM'  : 0.87  * cgs.kpc,
