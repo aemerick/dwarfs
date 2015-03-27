@@ -1054,9 +1054,11 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
                 # now loop over ray drawing
                 for fp in final_pos:
                     ray = ds.ray(sim.center, fp)
-                    r_ray = ray['t'] * np.sqrt(np.sum(ray.vec**2))
+                    ray_sort = np.argsort(ray['t'])
+
+                    r_ray = ray['t'][ray_sort] * np.sqrt(np.sum(ray.vec**2))
                     r_ray = r_ray.convert_to_units('cm')
-                    dens  = ray['dens'].convert_to_units('g/cm**3')
+                    dens  = ray['dens'][ray_sort].convert_to_units('g/cm**3')
     
                     rvals = r_ray[dens >= density_limit]
                     if np.size(rvals) == 0:
