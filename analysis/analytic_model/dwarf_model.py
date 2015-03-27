@@ -21,11 +21,47 @@ import cgs as cgs
 #
 # 
 
-def evolve_satellite():
+def evolve_satellite(t, r, v, rho_halo, rho_o, r_o, M_gas, T_halo, T_dwarf,
+                     rps=True, KH=True, tidal=False):
+
+    nsteps = np.size(t)
+    M = np.zeros(nsteps)
+    r_dwarf = np.zeros(nsteps)
+
+    # all possible timescales
+    timescales_dict = {'RPS'   : (rps, rps_timescale),
+                       'KH'    : (KH , KH_timescale),
+                       'tidal' : (tidal, tidal_timescale)}
+
+
+    if np.size(r) == 1:
+        r = r * np.ones(nsteps)
+    if np.size(rho_o) == 1:
+        rho_o = rho_o * np.ones(nsteps)
+    if np.size(rho_halo) == 1:
+        rho_halo = rho_halo * np.ones(nsteps)
+    if np.size(v) == 1:
+        v = v* np.ones(nsteps)
+
+    M[0] = M_gas
+
+    for i in np.arange(1,nsteps):
+        
+        tau_rps   = rps_timescale(rho_halo[i], rho_o[i], v[i], r_o)
+        tau_KH    = KH_timescale(M[i-1], rho_halo[i], v[i], T_halo,T_dwarf)
+        tau_tidal = tidal_timescale()
+
+        inv_tau = int(rps)/tau_rps + int(KH)/tau_KH + int(tidal)/tau_tidal
+
+        M[i] = M[i-1] * (1.0 - dt * inv_tau)
 
 
 
-    return r, m
+    return M
+
+def tidal_timescale():
+
+    return 0
 
 def rps_timescale(rho_halo, rho_o, v_dwarf, r_o,
                    n_halo=None, n_dwarf=None,
@@ -46,13 +82,19 @@ def rps_timescale(rho_halo, rho_o, v_dwarf, r_o,
 
     return tau
 
-def KH_timescale(M_gas, r_o, rho_halo, v_dwarf, n_halo=None, mu_halo=0.61):
+def KH_timescale(M_gas, r_o, rho_halo, rho_dwarf, v_dwarf,
+                 T_halo, T_dwarf, n_halo=None, mu_halo=0.61,mu_dwarf=1.31,
+                 gamma=5.0/3.0):
     """
     KH timescale for stripping
     """
     if n_halo is not None:
         rho_halo = n_halo *cgs.mp * mu_halo
 
-    M_rate = np.pi * r_o**2 * rho_halo * v_dwarf
+#    M_rate = np.pi * r_o**2 * rho_halo * v_dwarf
+    cs_dwarf = np.sqrt(gamma * cgs.kb * T_dwarf / (cgs.mp*mu_dwarf)) 
+    cs_halo  = np.sqrt(gamma * cgs.kb * T_halo / (cgs.mp*mu_halo ))
+
+    M_rate = np.pi * r_o**2 * rho_halo * v_dwarf * (cs_dwarf/cs_halo)
 
     return M_gas / M_rate
