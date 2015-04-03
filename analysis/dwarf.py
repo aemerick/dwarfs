@@ -856,10 +856,17 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_rang
     
     ds_list = sim.plt_list
     
+    # set tmin/tmax if not already
+    # if tmin/tmax set by user without units, assume Myr
     if tmin == None:
         tmin = 0.0 * yt.units.Myr
+    elif not hasattr(tmin,'value'):
+        tmin = tmin * yt.units.Myr
+
     if tmax == None:
         tmax = 1.0E4 * yt.units.Myr
+    elif npt hasattr(tmax,'value'):
+        tmax = tmax * yt.units.Myr
 
     if len(T_range) == 2:
         T_range = np.array(T_range)*yt.units.Kelvin
@@ -875,6 +882,9 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_rang
 
     dn = 1
     if not dt == None:
+        if not hasattr(dt, 'value'): # assume Myr if not provided
+            dt = dt * yt.units.Myr
+
         dt_sim = sim.times['plt'][1:] - sim.times['plt'][0:-1]
         dt_avg = np.average(dt_sim)
 
