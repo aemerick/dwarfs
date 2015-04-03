@@ -812,7 +812,7 @@ class dwarf:
 
 
 
-def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
+def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_range=[],
                neutral_temp = 2.0E4 * yt.units.Kelvin):
     """
        Calculate the gas mass of the dwarf as a function of 
@@ -873,7 +873,23 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
     ds_min  = np.argmin(np.abs((sim.times['plt'] - tmin).value))
     ds_max  = np.argmin(np.abs((sim.times['plt'] - tmax).value)) + 1
 
+    dn = 1
+    if not dt == None:
+        dt_sim = sim.times['plt'][1:] - sim.times['plt'][0:-1]
+        dt_avg = np.average(dt_sim)
 
+        dn = dt / dt_avg
+        if hasattr(dn, 'value'):
+            dn = dn.value
+
+
+    dn = int(dn)
+    ds_selection = np.arange(ds_min, ds_max + dn, dn)
+
+    if np.max(ds_selection) > ds_max:
+        ds_selection = ds_selection[ds_selection <= ds_max]
+
+    print ds_selection, dn, ds_min, ds_max
     file = open(out_file, 'w')
     file.write("# t m\n")
     format = "%8.8e %8.8e\n"
@@ -889,8 +905,12 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
  
 
         i = 0
-        for dsname in ds_list[ds_min:ds_max]:
-            _myprint("Calculating mass for file %4i of %4i"%(i+ds_min + 1, ds_max-ds_min+1))
+        for k in ds_selection:
+
+            dsname = ds_list[k]
+
+
+            _myprint("Calculating mass for file %4i of %4i"%(k,np.size(ds_selection)))
             ds = yt.load(dsname); data = ds.all_data()
             x = data['x'].convert_to_units('cm')
             y = data['y'].convert_to_units('cm')
@@ -935,7 +955,7 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, mode='grav', T_range=[],
             total_mass = total_mass.convert_to_units('Msun')
            
 
-            sim.dwarf_mass[mode][i + ds_min] = total_mass
+            sim.dwarf_mass[mode][k] = total_mass
             file.write(format%(ds.current_time.convert_to_units('Myr'),total_mass))
             i = i + 1
     
