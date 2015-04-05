@@ -176,6 +176,7 @@ class dwarf_ic:
         self.rvals  = r
         self.rho    = rho
        # self.radius = RM
+        return rho
 
     def column_density(self, r, type = 'NFW_isothermal', **kwargs):
 
