@@ -143,7 +143,20 @@ class dwarf_ic:
 
 
         self.Pcorona = self.ic['n_halo']*cgs.kb*self.ic['T_halo']
-                                        
+
+    def DM_density(self, r, type='NFW'):
+        if 'potential' in self.ic.keys():
+            type = self.ic['potential']
+
+        if type == 'NFW':
+            rho_DM = prof.NFW_DM(r, r_s=self.ic['b'],
+                                M200=self.ic['M200'],
+                                rho_crit = self.ic['rho_crit'])
+
+    
+        self.rho_DM = rho_DM
+        return rho_DM
+                                    
     def find_density_profile(self, r, type='NFW_isothermal'):
                
         if 'potential' in self.ic.keys():
