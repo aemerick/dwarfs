@@ -252,7 +252,7 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     
     return M, R
 
-def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, alpha=2.0):
+def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, alpha=1.0):
     # need DM density profile, gas density profile, and 
     
     # find the mass profile from density profile
@@ -266,7 +266,7 @@ def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, al
         M_gas[i-1] = 4.0*np.pi* integrate.quad(gas_integrand, 0.0,r[i])[0]
     
     # Now, calculate the RHS and LHS of the stripping condition
-    RHS = (M_DM + M_gas) * gas_density(r[:-1]) / r[:-1] * cgs.G * beta
+    RHS = (M_DM + M_gas) * gas_density(r[:-1]) / r[:-1] * cgs.G * alpha
     LHS = halo_density * galaxy_velocity * galaxy_velocity
     
     return LHS - RHS
