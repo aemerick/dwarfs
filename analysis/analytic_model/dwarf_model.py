@@ -134,7 +134,7 @@ class analytical_dwarf:
         M, R = \
                 evolve_satellite(t, included_physics, self.halo_density, self.galaxy_velocity,
                                               self.gas_profile, self.DM_profile, self.M_o, self.R_o,
-                                              physics_kwargs={})
+                                              physics_kwargs=physics_kwargs)
                 
         self.M = M
         self.R = R
@@ -203,6 +203,10 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     KH_const = 0.0; RPS_const = 0.0
     if 'KH' in included_physics:
         KH_const = 1.0
+
+    print physics_kwargs
+    print physics_kwargs.keys()
+
     if not 'KH' in physics_kwargs.keys():
         physics_kwargs['KH'] = {}
     
@@ -218,11 +222,12 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     
     ode_function = lambda y, t, A, B:\
                  A *  _KH_evolution(y, t, halo_gas_density, galaxy_velocity,
-                                                 galaxy_gas_density,physics_kwargs['KH'])+\
+                                                 galaxy_gas_density, **physics_kwargs['KH'])+\
                  B * _RPS_evolution(y, t, halo_gas_density, galaxy_velocity,
-                                           galaxy_gas_density, galaxy_gas_density(0.0))
+                                           galaxy_gas_density,
+                                           galaxy_gas_density(0.0), **physics_kwargs['RPS'])
     
-    
+    print physics_kwargs['RPS']
     # write a loop here... solve step by step
     M = np.zeros(np.size(t)); R = np.zeros(np.size(t))
     M[0] = M_o; R[0] = R_o
@@ -252,7 +257,7 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     
     return M, R
 
-def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, alpha=1.0):
+def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, alpha=1.15):
     # need DM density profile, gas density profile, and 
     
     # find the mass profile from density profile
@@ -287,7 +292,7 @@ def _KH_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, *
     return np.array([Mdot, Rdot])
 
 def _RPS_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, rho_gas_o,
-                  method='shock', T_galaxy = None, mu_galaxy = None, *args, **kwargs):
+                  method='shock', T_galaxy = None, mu_galaxy = None, beta = 1.0):
     """
         This function can be supplied to an ode solver (taken care of by the 
         evolve_satellite function) to model mass loss and radius change of a 
@@ -343,8 +348,8 @@ def _RPS_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, 
             c_sound = ((5.0/3.0)*cgs.kb*T_galaxy/(cgs.mp*mu_galaxy))**0.5
             rdot = -c_sound
             mdot = 4.0*np.pi*Ri**2 * galaxy_gas_density(Ri) * rdot
-   
-    return np.array([mdot, rdot])
+
+    return np.array([mdot/beta, rdot/beta])
 
 
 
