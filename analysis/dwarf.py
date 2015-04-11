@@ -810,7 +810,46 @@ class dwarf:
        
         return prof.x_bins, prof[field]
 
+def _select_ds_list(sim, tmin, tmax, ftype='plt', dt=None):
+    """
+    Given time range, get list of plt files to operate over
+    """    
+    # set tmin/tmax if not already
+    # if tmin/tmax set by user without units, assume Myr
+    if tmin == None:
+        tmin = 0.0 * yt.units.Myr
+    elif not hasattr(tmin,'value'):
+        tmin = tmin * yt.units.Myr
 
+    if tmax == None:
+        tmax = 1.0E4 * yt.units.Myr
+    elif not hasattr(tmax,'value'):
+        tmax = tmax * yt.units.Myr
+        
+    ds_min  = np.argmin(np.abs((sim.times[ftype] - tmin).value))
+    ds_max  = np.argmin(np.abs((sim.times[ftype] - tmax).value)) + 1
+
+    dn = 1
+    if not dt == None:
+        if not hasattr(dt, 'value'): # assume Myr if not provided
+            dt = dt * yt.units.Myr
+
+        dt_sim = sim.times['plt'][1:] - sim.times['plt'][0:-1]
+        dt_avg = np.average(dt_sim)
+
+        dn = dt / dt_avg
+        if hasattr(dn, 'value'):
+            dn = dn.value
+
+
+    dn = int(dn)
+    ds_selection = np.arange(ds_min, ds_max + dn, dn)
+
+    ds_selection = ds_selection[ds_selection <= ds_max]
+
+    if np.size(ds_selection) > np.size(sim.times['plt']):
+        ds_selection = ds_selection[0:np.size(sim.times['plt'])]
+    return ds_selection
 
 def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_range=[],
                neutral_temp = 2.0E4 * yt.units.Kelvin):
@@ -853,21 +892,8 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_rang
         is gas below neutral_temp is neutral (mu = 1.31), above ionized
         mu = 0.6. Default 2.0E4 Kelvin.
     """
-    
+
     ds_list = sim.plt_list
-    
-    # set tmin/tmax if not already
-    # if tmin/tmax set by user without units, assume Myr
-    if tmin == None:
-        tmin = 0.0 * yt.units.Myr
-    elif not hasattr(tmin,'value'):
-        tmin = tmin * yt.units.Myr
-
-    if tmax == None:
-        tmax = 1.0E4 * yt.units.Myr
-    elif npt hasattr(tmax,'value'):
-        tmax = tmax * yt.units.Myr
-
     if len(T_range) == 2:
         T_range = np.array(T_range)*yt.units.Kelvin
 
@@ -877,29 +903,9 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_rang
 
     
     # do only over select time range
-    ds_min  = np.argmin(np.abs((sim.times['plt'] - tmin).value))
-    ds_max  = np.argmin(np.abs((sim.times['plt'] - tmax).value)) + 1
-
-    dn = 1
-    if not dt == None:
-        if not hasattr(dt, 'value'): # assume Myr if not provided
-            dt = dt * yt.units.Myr
-
-        dt_sim = sim.times['plt'][1:] - sim.times['plt'][0:-1]
-        dt_avg = np.average(dt_sim)
-
-        dn = dt / dt_avg
-        if hasattr(dn, 'value'):
-            dn = dn.value
+    ds_selection = _select_ds_list(sim, tmin, tmax, dt=dt)
 
 
-    dn = int(dn)
-    ds_selection = np.arange(ds_min, ds_max + dn, dn)
-
-    if np.max(ds_selection) > ds_max:
-        ds_selection = ds_selection[ds_selection <= ds_max]
-
-    print ds_selection, dn, ds_min, ds_max
     file = open(out_file, 'w')
     file.write("# t m\n")
     format = "%8.8e %8.8e\n"
@@ -1046,9 +1052,9 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
 
 
     # do only over select time range
-    ds_min  = np.argmin(np.abs((sim.times['plt'] - tmin).value))
-    ds_max  = np.argmin(np.abs((sim.times['plt'] - tmax).value)) + 1
-
+    ds_selection = _select_ds_list(sim, tmin, tmax, dt=dt)
+ 
+    
     file = open(outfile, 'w')
     file.write("# t r\n")
     format = "%8.8e %8.8e\n"
@@ -1059,7 +1065,7 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
         theta = np.arange(0.0, 2.0*np.pi, 2.0*np.pi / (1.0*nsample))
 
         i = 0
-        for dsname in ds_list[ds_min:ds_max]:
+        for dsname in ds_selection:
             _myprint("Calculating radius for file %4i of %4i"%(i+ds_min+1,ds_max-ds_min+1))
             ds = yt.load(dsname)
 
@@ -1118,7 +1124,7 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
             f_bound = 0.95
 
         i = 0
-        for dsname in ds_list[ds_min:ds_max]:
+        for dsname in ds_selection:
            
 
             _myprint("Calculating radius for file %4i of %4i"%(i+ds_min+1,ds_max-ds_min+1))
@@ -1249,6 +1255,80 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
     file.close()
     return 
 
+def profile_1D(sim, x_field, y_field, nbins=10, weight_field='cell_mass', tmin = None, tmax = None,
+               dt = None, accumulation=False):
+    """
+    
+    """
+    
+    ds_list = sim.plt_list
+    
+    # set tmin/tmax if not already
+    # if tmin/tmax set by user without units, assume Myr
+    if tmin == None:
+        tmin = 0.0 * yt.units.Myr
+    elif not hasattr(tmin,'value'):
+        tmin = tmin * yt.units.Myr
+
+    if tmax == None:
+        tmax = 1.0E4 * yt.units.Myr
+    elif not hasattr(tmax,'value'):
+        tmax = tmax * yt.units.Myr
+    
+    if not hasattr(x_field, '__iter__'):
+        x_field = [x_field]
+    if not hasattr(y_field, '__iter__'):
+        y_field = [y_field]
+    
+    ds_selection = _select_ds_list(sim, tmin, tmax, dt=dt)
+
+    np.ones(np.size(sim.times['plt']))*-1
+    
+    # need to add profiles to dict
+    #  ... if sim doesn't have profiles attribute, add it
+    if not hasattr(sim, 'profiles'):
+        sim.profiles = {}
+    if not hasattr(sim, 'profile_bins'):
+        sim.profile_bins = {}
+    
+    for x in x_field:
+        if not x_field in sim.profiles.keys():
+            sim.profiles[x] = {}
+        if not x_field in sim.profile_bins.keys():
+            sim.profile_bins[x] = [None]
+        
+        for y in y_field: # initialize lists to contain data for all times
+            sim.profiles[x][y] = [None]*np.size(sim.times['plt'])
+
+    # loop over the selected data files
+    for k in ds_selection:
+
+        # load file and create sphere on simulation center
+        ds_name = ds_list[k]
+        ds = yt.load(ds_name)
+        sp = ds.sphere(sim.center,sim.radius)
+        
+        # calculate all of the desired profiles and save them
+        for x in x_field:
+            profile = yt.Profile1D(sp, x, nbins, 0.0*yt.units.pc, 
+                                   sp.radius,x_log=False, weight_field=weight_field)
+    
+            for y in y_field:
+                profile.add_fields(y)
+                
+                if profile.field_data.has_key(y):
+                    store_profile = profile.field_data[y]
+                else:
+                    store_profile = profile.field_data[('gas',y)]
+
+                if accumulation:
+                    store_profile = np.cumsum(store_profile)
+                
+                sim.profiles[x][y][k] = store_profile
+                
+        sim.profile_bins[x] = profile.x
+                
+                
 
         
 def _myprint(string):
