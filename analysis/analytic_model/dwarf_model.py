@@ -204,9 +204,6 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     if 'KH' in included_physics:
         KH_const = 1.0
 
-    print physics_kwargs
-    print physics_kwargs.keys()
-
     if not 'KH' in physics_kwargs.keys():
         physics_kwargs['KH'] = {}
     
@@ -217,6 +214,15 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     if not 'RPS' in physics_kwargs.keys():
         physics_kwargs['RPS'] = {}
     
+    # if alpha is contained in physcis kwargs... strip it to be 
+    # used in the RPS condition function call, as it is not used in the
+    # RPS mass loss rate calculation
+    if 'alpha' in physics_kwargs['RPS'].keys():
+        alpha = physics_kwargs['RPS']['alpha']
+        physics_kwargs['RPS'].pop('alpha',None)
+    else:
+        alpha = 1.0
+        
     # need to come up with some way to make a function on the fly... constants is fine
     # but if this gets complicated then.... yaa.....
     
@@ -227,7 +233,6 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
                                            galaxy_gas_density,
                                            galaxy_gas_density(0.0), **physics_kwargs['RPS'])
     
-    print physics_kwargs['RPS']
     # write a loop here... solve step by step
     M = np.zeros(np.size(t)); R = np.zeros(np.size(t))
     M[0] = M_o; R[0] = R_o
@@ -238,7 +243,7 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
         if 'RPS' in included_physics:
             # integrate and test around the current radius
             rps_cond = _RPS_condition(np.linspace(0.9999*R[i],1.0001*R[i],5), rho_DM, galaxy_gas_density, 
-                                               halo_gas_density(t[i]), galaxy_velocity(t[i]))
+                                               halo_gas_density(t[i]), galaxy_velocity(t[i]), alpha=alpha)
             
             # if RPS is valid at current radius, use it... otherwise set to zero
             if rps_cond[3] > 0:
@@ -257,7 +262,7 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     
     return M, R
 
-def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, alpha=1.15):
+def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, alpha=1.0):
     # need DM density profile, gas density profile, and 
     
     # find the mass profile from density profile
@@ -349,7 +354,7 @@ def _RPS_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, 
             rdot = -c_sound
             mdot = 4.0*np.pi*Ri**2 * galaxy_gas_density(Ri) * rdot
 
-    return np.array([mdot/beta, rdot/beta])
+    return np.array([mdot*beta, rdot*beta])
 
 
 
