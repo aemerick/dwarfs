@@ -1,17 +1,17 @@
-"""
-dwarf
-
-    Description: Dwarf Galaxy Simulation Analysis
-               - Purpose of code is to develop object oriented
-                 method to quickly and easily analyze large sets
-                 of data from FLASH simulations of dwarf galaxy
-                 ram pressure stripping. Relies substantially on
-                 yt 3.x
-    Created : Nov. 2014
-    Author  : Andrew Emerick 
-    Affil   : Columbia University - American Museum of Natural History
-    Contact : emerick@astro.columbia.edu
-"""
+#"""
+#dwarf
+#
+#    Description: Dwarf Galaxy Simulation Analysis
+#               - Purpose of code is to develop object oriented
+#                 method to quickly and easily analyze large sets
+#                 of data from FLASH simulations of dwarf galaxy
+#                 ram pressure stripping. Relies substantially on
+#                 yt 3.x
+#    Created : Nov. 2014
+#    Author  : Andrew Emerick 
+#    Affil   : Columbia University - American Museum of Natural History
+#    Contact : emerick@astro.columbia.edu
+#
 
 import os
 import yaml
@@ -41,6 +41,31 @@ import cgs as cgs
 
 
 class simulation: # need a better name
+    """
+    The simulation class is meant to be an easy way to abstract some analysis
+    and interface with the entire dwarf galaxy simulation as a single object.
+    Rather than loading a slew of individual plot / checkpoint files into a 
+    list, for example, loading a simulation class will automatically look
+    for all data outputs, the corresponding flash.par file, and any
+    ancillary outputs like SNfeedback.dat, SBfeedback.dat. For the data files,
+    it stores the filepaths to all to make easy looping over the data sets.
+    It also checks through all outputs and records the time of each output.
+   
+    This is convenient and abtracts some analysis, so one could just load
+    the simulation object and pass it to a function, and do the same operation
+    over all contained data sets fairly easily. For example, calculating the
+    bound mass of the dwarf galaxy over time can be done in two lines:
+
+    sim = dwarf.simulation('data_prefix_')
+    dwarf.dwarf_mass(sim, 'outputfile.dat')
+
+    A.E. 6/1/15:
+    A lot of code is written with no current obvious usefullness (such as
+    loading in some of the supernova data, for example). This will be 
+    changed ultimately as work progresses from FLASH coding / simulation to
+    analysis.
+    """
+
 
     def __init__(self, ds_prefix, param_file = "flash.par", ds_dir="./",
                        exact_times=True, reload_times=False):
@@ -576,11 +601,14 @@ class SB(SNSB):
         # now, reassign
         data.dtype.names = names_list
 
-        data['time'] *= u.s
-        data['posx'] *= u.cm; data['poxy'] *= u.cm; data['posz'] *= u.cm
-        data['velx'] *= u.cm/u.s ; data['vely'] *= u.cm / u.s; 
-        data['velz'] *= u.cm/u.s
-        data['SNinvT'] *= u.s
+        data['time'] = data['time'] * u.s
+        data['posx'] = data['posx'] * u.cm
+        data['posy'] = data['posy'] * u.cm
+        data['posz'] = data['posz'] * u.cm
+        data['velx'] = data['velx'] * u.cm/u.s
+        data['vely'] = data['vely'] * u.cm / u.s; 
+        data['velz'] = data['velz'] * u.cm/u.s
+        data['SNinvT'] = data['SNinvT'] * u.s
 
         self.creation_data = data
         #
@@ -593,7 +621,8 @@ def _select_ds_list(sim, tmin, tmax, ftype='plt', dt=None):
     """
     Given time range, get list of plt files to operate over. This 
     needs to be improved upon by quite a bit.
-    """    
+    """
+
     # set tmin/tmax if not already
     # if tmin/tmax set by user without units, assume Myr
     if tmin == None:
@@ -613,18 +642,18 @@ def _select_ds_list(sim, tmin, tmax, ftype='plt', dt=None):
     if not dt == None:
         if not hasattr(dt, 'value'): # assume Myr if not provided
             dt = dt * yt.units.Myr
-
+        print 'if not dt None'
         dt_sim = sim.times['plt'][1:] - sim.times['plt'][0:-1]
-        dt_avg = np.average(dt_sim)
+        dt_avg = np.median(dt_sim)
 
         dn = dt / dt_avg
         if hasattr(dn, 'value'):
             dn = dn.value
-
-
+        print dt_sim, dt_avg, dt, dn
+    
     dn = int(dn)
     ds_selection = np.arange(ds_min, ds_max + dn, dn)
-
+    print dn, ds_selection
     ds_selection = ds_selection[ds_selection <= ds_max]
 
     if np.size(ds_selection) > np.size(sim.times['plt']):
@@ -784,7 +813,8 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_rang
         
 def dwarf_radius(sim, outfile, tmin=None, tmax=None, 
                  mode = 'slice', density_limit=1.0E-26, nsample=12.0,
-                 dr_cell = 16.0, f_bound = 0.95, T_bound_limit = 2.0E4):
+                 dr_cell = 16.0, f_bound = 0.95, T_bound_limit = 2.0E4,
+                 ds_selection=None):
     """
     
         Compute the estimated dwarf galaxy radius at the supplied time
@@ -832,7 +862,8 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
 
 
     # do only over select time range
-    ds_selection = _select_ds_list(sim, tmin, tmax, dt=dt)
+    if ds_selection == None:
+        ds_selection = _select_ds_list(sim, tmin, tmax, dt=dt)
  
     
     file = open(outfile, 'w')
@@ -1029,6 +1060,84 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
             file.write(format%(ds.current_time.convert_to_units('Myr').value,radius.value))
 
             r_prev = radius
+            i = i + 1
+        # end loop over ds files
+    #------------------------------------------------------------------------------------------    
+    elif mode == 'grav2': 
+        # compute shell thickness 
+        r_prev = sim.radius.convert_to_units('cm')
+
+        i = 0
+        ds_list = sim.plt_list
+        for k in ds_selection:
+
+        # load file and create sphere on simulation center
+            ds_name = ds_list[k]
+
+            _myprint("Calculating radius for file %4i of %4i"%(i+1,len(ds_selection)))
+            ds = yt.load(ds_name)
+            data = ds.all_data()
+            
+            # get positions of all points
+            x = data['x'].convert_to_units('cm')
+            y = data['y'].convert_to_units('cm')
+            z = data['z'].convert_to_units('cm')
+
+            rho = data['dens']
+            mass      = rho * data['dx'] * data['dy'] * data['dz']
+            mass = mass.convert_to_units('g')
+
+            T = data['temp'].convert_to_units('K')
+
+            # kinetic energy and thermal energy
+            E_kin = 0.5 * mass * (data['velx']**2 + data['vely']**2 + data['velz']**2)
+            E_kin = E_kin.convert_to_units('erg')
+            E_therm = mass * data['eint'].convert_to_units('cm**2/s**2')
+
+            # total energy
+            E_tot = E_therm + E_kin
+
+            # calcualte gravitational potential energy
+            r = sim.dist_from_center(x,y,z)
+            r = r.convert_to_units('cm')
+            phi       = sim.evaluate_potential(r)
+            U_grav    = -1.0 * mass * phi
+            
+            # select out gas using tempeature cutoff
+            T_cold = (T<=T_bound_limit)
+            r       = r[T_cold]  
+            mass    = mass[T_cold]
+            E_tot   = E_tot[T_cold]
+            U_grav  = U_grav[T_cold]
+            
+            # find bound cells:
+            bound_cells = E_tot < U_grav
+            
+            # radii and masses of bound cells only
+            
+            R_bound = r[bound_cells]
+            M_bound = mass[bound_cells]
+            total_bound_mass = np.sum(M_bound)
+            print np.median(R_bound.convert_to_units('pc')), np.average(R_bound.convert_to_units('pc'))
+            print np.max(R_bound.convert_to_units('pc')), np.min(R_bound.convert_to_units('pc'))
+            # now sort R and M by R:
+            R_argsort = np.argsort(R_bound)
+            R_bound = R_bound[R_argsort]
+            M_bound = M_bound[R_argsort]
+            
+            # get array of cumulative bound mass fraction
+            cum_bound_fraction = np.cumsum(M_bound) / total_bound_mass
+
+            # now get the index where bound fraction is greater than or equal to f_bound
+            index = ((cum_bound_fraction >= f_bound).tolist()).index(True)
+            
+            # now retrieve the dwarf radius
+            dwarf_radius = R_bound[index]
+            
+            # save to array and dict
+            sim.dwarf_radius[mode][k] = dwarf_radius.convert_to_units('pc')
+            file.write(format%(ds.current_time.convert_to_units('Myr').value,dwarf_radius.value))
+
             i = i + 1
         # end loop over ds files
 
