@@ -282,7 +282,7 @@ def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, al
     return LHS - RHS
     
 
-def _KH_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, *args, **kwargs):
+def _KH_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, beta=1.0):
 
     Mi = y[0]
     Ri = y[1]
@@ -294,7 +294,7 @@ def _KH_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, *
         Mdot = -np.pi * Ri**2 * halo_gas_density(t) * galaxy_velocity(t)
         Rdot = Mdot / (4.0*np.pi*Ri**2 * galaxy_gas_density(Ri))
         
-    return np.array([Mdot, Rdot])
+    return np.array([Mdot*beta, Rdot*beta])
 
 def _RPS_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, rho_gas_o,
                   method='shock', T_galaxy = None, mu_galaxy = None, beta = 1.0):
