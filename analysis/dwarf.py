@@ -547,8 +547,55 @@ class SN(SNSB):
         else:
 
             return fig, ax
+
+    
         #
     # end plot positions
+    def rate(self, sntype = 2, units="Myr"):
+        """
+            Calculates and returns the supernova rate.
+
+            Assumes rate for type II supernova. 
+
+            sntype : int
+               Type of supernova rate to calculate. Default is 2
+               0 = Total Rate (all SN)
+               1 = Type 1a
+               2 = Type II
+               3 = Type II from SB
+        """
+        # do a numerical derivative
+        total_SN = np.size(self.data['time'])        
+
+        if sntype == 0:
+            type_select = np.arange(0, total_SN)
+        else:
+            type_select = self.data['type'] == sntype
+
+        
+
+        t = self.data['time'][type_select]
+        N = np.arange(1, total_SN + 1)[type_select]
+
+        dNdt = np.zeros(t.shape, np.float)
+
+        dNdt[1:-1] = (N[2:] - N[0:-2])/(t[2:] - t[0:-2])
+        dNdt[0]    = (N[1]  - N[0]   )/(t[1]  - t[0]   )
+        dNdt[1]    = (N[-1] - N[-2]  )/(t[-1] - t[-2]  )
+
+        
+
+        return t, dNdt
+  
+    def rate_from_gas(units="1/Myr"):
+        """
+        Calculates the total supernova rate from
+        """
+
+        return 'does nothing right now'
+
+
+
 # - end SN class
 
 class SB(SNSB):
