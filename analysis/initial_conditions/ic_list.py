@@ -57,8 +57,9 @@ class dwarf_ic:
                    return 
             elif (not 'M_HI' in self.ic.keys() or\
                   not 'r_HI' in self.ic.keys()) and\
-             (not ('n_halo' in self.ic.keys() and 'T_halo' in self.ic.keys())):
-                  print "MUST SET EITHER 'M_HI' and 'r_HI' OR 'n_halo' and 'T_halo'"
+             (not ('n_halo' in self.ic.keys() and 'T_halo' in self.ic.keys())) and\
+             (not ('n_o' in self.ic.keys() and 'n_halo' in self.ic.keys() and 'r_HI' in self.ic.keys())):
+                  print "MUST SET EITHER 'M_HI' and 'r_HI' OR 'n_halo' and 'T_halo' OR 'n_o' and 'n_halo' and 'r_HI'"
                   return
 
 
@@ -79,7 +80,7 @@ class dwarf_ic:
                     T_halo = None
 
                 else:
-                    print "ERROR: Either n_halo and T_halo must be specified"
+                    print "ERROR: Either n_halo or T_halo must be specified"
                     return
 
             elif 'T_halo' in self.ic.keys() and 'n_halo' in self.ic.keys():
@@ -88,6 +89,13 @@ class dwarf_ic:
                 M_HI   = -1.0
                 r_HI   = -1.0
 
+            elif 'n_o' in self.ic.keys() and 'n_halo' in self.ic.keys() and\
+                 'r_HI' in self.ic.keys():
+                 T_halo = None
+                 n_halo = self.ic['n_halo']
+                 M_HI   = -1.0
+                 r_HI   = self.ic['r_HI']
+                 n_o    = self.ic['n_o']
           
             else:
                 print "T_halo and n_halo must be set"
@@ -123,6 +131,20 @@ class dwarf_ic:
                 self.ic['n_halo'] = n_halo
                 self.ic['c']      = c
                 self.ic['RM']     = rmatch
+                
+                self.Pcorona = self.ic['n_halo']*cgs.kb*self.ic['T_halo']
+                
+                if not 'M_HI' in self.ic.keys() and 'r_HI' in self.ic.keys():
+                    r = np.linspace(0.0, self.ic['r_HI'],1.0E3)
+                    rho, RM = prof.NFW_isothermal_rmatch(r, r_s=self.ic['b'],
+                           M200=self.ic['M200'], T=self.ic['T_dwarf'],
+                           rmatch = self.ic['r_HI'], mu = self.ic['mu_dwarf'],
+                           rho_crit = self.ic['rho_crit'],
+                           Pcorona = self.Pcorona)# solve the profile for total mass
+                    
+                    M_HI = prof.cumulative_mass(r,rho)
+                    self.ic['M_HI'] = M_HI[-1]
+                    
 
             elif self.ic['potential_type'] == 'Burkert':
 
@@ -275,6 +297,58 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                              'n_halo' : 4.5E-4, 
                              #'T_halo' : 7.5E5,
                              'potential_type':'NFW'},
+
+                             'LT_n020_v2_nh5':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 0.20, 'n_halo' : 1.0E-5, 'v_halo' : 200.0E5},
+                            'LT_n075_v2_nh5':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 0.75, 'n_halo' : 1.0E-5, 'v_halo' : 200.0E5},
+                             'LT_n150_v2_nh5':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 1.50, 'n_halo' : 1.0E-5, 'v_halo' : 200.0E5},
+                             'LT_n020_v2_nh3':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 0.20, 'n_halo' : 1.0E-3, 'v_halo' : 200.0E5},
+                            'LT_n075_v2_nh3':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 0.75, 'n_halo' : 1.0E-3, 'v_halo' : 200.0E5},
+                             'LT_n150_v2_nh3':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 1.50, 'n_halo' : 1.0E-3, 'v_halo' : 200.0E5},
+                                                            
+                              
+                             
                       #      'Leo_T_obs_burkert':
                       #      {'T_dwarf' : 1.0E4, 'M_DM' : 1.0E7*cgs.Msun,
                       #       'r_DM': 300.*cgs.pc, 'r_HI':300.0*cgs.pc,
