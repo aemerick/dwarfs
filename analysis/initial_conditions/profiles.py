@@ -428,7 +428,7 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
     """
 
     M200, R200, rho_s, r_s, c = solve_NFW_DM(M_DM, r_DM, r_s, rho_crit=rho_crit)
-
+    print 'NFW solve M200, R200, rho_s, r_s, c', M200, R200, rho_s, r_s, c
     # now solve for the central gas density given M_HI at r_HI
 
     C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu * cgs.mp /(cgs.kb*T)
@@ -469,7 +469,19 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
             n_halo     = n_gas_edge * T / T_halo
     
         rmatch = r_HI
-    else: # if n_o is provided, r_HI and M_HI are ingored
+    
+    elif not n_o == None and not r_HI == None:
+        rho_o = n_o * cgs.mp * mu_halo
+        
+        n_dens = lambda r: n_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))       
+
+        # now solve for the corona temperature by temperature balance at r_HI
+        T_halo = n_dens(r_HI) * T / n_halo
+        
+        #
+        rmatch = r_HI
+    
+    else: # if n_o is provided and r_HI and M_HI are not
         rho_o = n_o * cgs.mp * mu_halo
 
         n_dens = lambda r: n_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
@@ -519,12 +531,12 @@ def cumulative_mass(r, rho):
     mass_enclosed = np.zeros(np.size(r))
     
 #    integrand = lambda x : x*x*rho[rx]
-    
+    i = 0
     for i in np.arange(np.size(r)):
  #       mass_enclosed[i] = integrate.quad(integrand,0,r[i])[0] * 4.0*np.pi
         #select = r[0:i]
         mass_enclosed[i] = 4.0*np.pi*np.trapz(r[0:i]**2 * rho[0:i], r[0:i])
-  
+        i = i + 1
     
     return mass_enclosed
 
