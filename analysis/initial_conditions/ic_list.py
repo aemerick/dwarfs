@@ -144,6 +144,11 @@ class dwarf_ic:
                     
                     M_HI = prof.cumulative_mass(r,rho)
                     self.ic['M_HI'] = M_HI[-1]
+                
+                if not 'R200' in self.ic.keys():
+                    R200 = (M200 * (3.0 / (4.0*np.pi))/(200.0 * self.ic['rho_crit']))**(1.0/3.0)
+                    self.ic['R200'] = R200
+
                     
 
             elif self.ic['potential_type'] == 'Burkert':
@@ -346,6 +351,30 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                               'potential_type' : 'NFW',
                               'r_HI'    : 300.0 * cgs.pc,
                               'n_o' : 1.50, 'n_halo' : 1.0E-3, 'v_halo' : 200.0E5},
+                             'LT_n020_v2_nh4':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 0.20, 'n_halo' : 1.0E-4, 'v_halo' : 200.0E5},
+                            'LT_n075_v2_nh4':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 0.75, 'n_halo' : 1.0E-4, 'v_halo' : 200.0E5},
+                             'LT_n150_v2_nh4':
+                             {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
+                              'r_DM'    : 300.0 *cgs.pc,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b'       : 795.0 * cgs.pc,
+                              'potential_type' : 'NFW',
+                              'r_HI'    : 300.0 * cgs.pc,
+                              'n_o' : 1.50, 'n_halo' : 1.0E-4, 'v_halo' : 200.0E5},
                                                             
                               
                              
