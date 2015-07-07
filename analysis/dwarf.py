@@ -81,7 +81,10 @@ class simulation: # need a better name
         ds_dir : string
             Directory where all the data is located (assumed "./")
         """
-
+        # define some fields before loading any data set
+        self.define_fields()
+        
+        # 
         self.param_file = param_file
         self.ds_dir     = ds_dir
 
@@ -137,6 +140,8 @@ class simulation: # need a better name
 
         # define the radius using the cloud temperature
         self._find_radius()
+
+
 
         # load the simulation times 
         filename = ds_dir + ds_prefix + "times.dat"
@@ -366,6 +371,43 @@ class simulation: # need a better name
                     pass
                
 
+    def define_fields(self, fields_list = ['SNR'], field_kwargs={}):
+    
+  
+    
+        def _define_snr(Tcold=2.0E4*yt.units.K):
+        
+            def _snr(field, data):
+                
+                cold_gas = data['temperature'].convert_to_units('K') <= Tcold
+                
+                HI = 0.75 *(data['dens'].convert_to_units('Msun/pc**3')*data['dx'].convert_to_units('pc')).convert_to_units('Msun/pc**2')
+                
+                SFR = (HI[cold_gas] ** (2.47) * 2.13E-5).value
+                SFR = SFR * yt.units.Msun /yt.units.yr / (yt.units.kpc**2)
+                
+                SFR = (SFR * data['dy'][cold_gas].convert_to_units('kpc') * data['dz'][cold_gas].convert_to_units('kpc')).convert_to_units('Msun/yr')
+                
+                SNR = 6.0E-3 * SFR.value 
+                
+                
+ 
+                return SNR / yt.units.yr
+                
+            yt.add_field('SNR', function = _snr, units="1/yr")
+        
+        
+        field_def_dict = {'SNR': _define_snr}
+        
+        
+        # now run everything
+        for field in fields_list:
+        
+            if field_kwargs.has_key(field):
+                field_def_dict[field](**field_kwargs[field])
+            else:
+                field_def_dict[field]()
+    
 
     def _load_SN_data(self):
   
@@ -594,6 +636,15 @@ class SN(SNSB):
 
         return 'does nothing right now'
 
+    def analytic_rate(self,M_HI, r_HI):
+
+
+        SFR = ((M_HI/(np.pi*r_HI*r_HI))** (2.47) * 2.13E-5)
+       
+        SFR = (SFR * (np.pi*r_HI*r_HI/1000/1000))
+        SNR = 6.0E-3 * SFR
+
+        return SNR
 
 
 # - end SN class
@@ -706,6 +757,48 @@ def _select_ds_list(sim, tmin, tmax, ftype='plt', dt=None):
     if np.size(ds_selection) > np.size(sim.times['plt']):
         ds_selection = ds_selection[0:np.size(sim.times['plt'])]
     return ds_selection
+
+def _bound_gas(sim, data, T_range=np.array([0.0,2.0E4])*yt.units.K):
+    """
+    From given data object and simulation, computes the total energy 
+    (thermal plus kinetic) of each cell in 'data', along with the value
+    of the static potential at the position (from analytic equation). Returns
+    values of total energy and potential energy, and an array of T/F values,
+    where True is bound, and False is unbound.
+    """
+   
+    x = data['x'].convert_to_units('cm')
+    y = data['y'].convert_to_units('cm')
+    z = data['z'].convert_to_units('cm')  
+ 
+    rho = data['dens']
+    mass      = rho * data['dx'] * data['dy'] * data['dz']        
+    mass = mass.convert_to_units('g')
+
+    T = data['temp'].convert_to_units('K')
+
+    # kinetic energy
+    E_kin = 0.5 * mass * (data['velx']**2 + data['vely']**2 + data['velz']**2)
+    E_kin = E_kin.convert_to_units('erg')
+
+    E_therm = mass * data['eint'].convert_to_units('cm**2/s**2')
+
+    # total energy
+    E_tot = E_therm + E_kin
+
+    # calcualte gravitational potential energy
+    r = sim.dist_from_center(x,y,z)
+    phi       = sim.evaluate_potential(r)
+    U_grav    = -1.0 * mass * phi
+
+    if len(T_range) == 2:
+        bound = (E_tot<U_grav)*(T>T_range[0])*(T<T_range[1])
+           
+    else:
+        bound = (E_tot<U_grav)
+
+
+    return Etot, U_grav, bound
 
 def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_range=[],
                neutral_temp = 2.0E4 * yt.units.Kelvin):
