@@ -3,7 +3,34 @@ import cooling as cool
 import numpy as np
 import cgs as cgs
 
-def heating_balance(density, T, mu = 1.0, number_density = False):
+def LTE_heating_fit(r, density, T, order = 8,
+                                outfile = 'HSE_heating_fit.dat'):
+    """
+    Supply density and temperature and radius. Fit profile using an
+    nth order polynomial
+    """
+    
+    # find the profile
+    gamma, n_gamma, nn_delta = heating_balance(density, T, number_density=True)
+    
+    # find the polynomial fit
+    pol = np.polyfit(r, gamma, order)
+    p   = np.poly1d(pol)
+    
+    # flip around the polynomial order
+    pol_flip = list(reversed(pol))
+    
+    # write out 
+    f = open(outfile, 'w')
+    for val in pol_flip:
+        f.write("%16.16e\n"%(val))
+        
+    f.close()
+    
+    # return polynomials and profile
+    return pol_flip, p(r)
+
+def heating_balance(density, T, mu = 1.31, number_density = False):
     """
     calculates the heating balance needed for HSE against cooling
     for the density and temperature profiles given
@@ -18,7 +45,7 @@ def heating_balance(density, T, mu = 1.0, number_density = False):
         ndens = density / (mh * mu)
 
     # n * Gamma - n*n*Lambda = 0 --- Heating balance
-    Lambda = cool.radloss(T)
+    Lambda = cool.radloss(ndens,T)
     Gamma = Lambda * ndens
 
     return Gamma, ndens*Gamma, ndens*ndens*Lambda
@@ -69,8 +96,8 @@ def lower_bound_heating(r, n, T, T_heat_min=10.0, T_heat_max=2.0E4, **kwargs):
            
     """
     if np.size(r) == 0:
-       if r == 0.0:
-           r = np.zeros(np.shape(T))
+        if r == 0.0:
+            r = np.zeros(np.shape(T))
     if np.size(T) == 0 and np.size(r) > 0:
         T = np.ones(np.shape(r)) * T
 
@@ -79,9 +106,9 @@ def lower_bound_heating(r, n, T, T_heat_min=10.0, T_heat_max=2.0E4, **kwargs):
         select = (T > T_heat_min) * (T < T_heat_max)    
         total_rate[select] = diffuse_UV(r[select], **kwargs) + metagalactic()
     elif((T<T_heat_max) and (T>T_heat_min)):
-       total_rate = diffuse_UV(r, **kwargs) + metagalactic()
+        total_rate = diffuse_UV(r, **kwargs) + metagalactic()
     else:
-       total_rate = 0.0
+        total_rate = 0.0
 
 
     return np.array(total_rate)
