@@ -139,6 +139,25 @@ class analytical_dwarf:
         self.M = M
         self.R = R
         return M, R
+        
+        
+    def load_simulation_mass(self, file_name):
+        """
+        Loads simulated mass evolution
+        """
+                
+        data = np.genfromtxt(file_name, names=True)
+        
+        if not hasattr(self, 'simulation_data'):
+            self.simulation_data = {}
+        
+        
+        self.simulation_data['mass'] = data['m'] # assuming in solar masses
+        self.simulation_data['time'] = data['t'] # assuming in millions of years
+        
+        
+        
+        
 
 def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, galaxy_gas_density, rho_DM, M_o, R_o, physics_kwargs={}):
     """
