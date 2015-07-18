@@ -801,7 +801,7 @@ def _bound_gas(sim, data, T_range=np.array([0.0,2.0E4])*yt.units.K):
     return Etot, U_grav, bound
 
 def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_range=[],
-               neutral_temp = 2.0E4 * yt.units.Kelvin):
+               neutral_temp = 2.0E4 * yt.units.Kelvin, r_factor = 1.0):
     """
        Calculate the gas mass of the dwarf as a function of 
        time. Method set by mode to 'grav' or 'contained' for gravitationally
@@ -840,6 +840,9 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_rang
         requiring value for mean molecular weight. Best case assumtion
         is gas below neutral_temp is neutral (mu = 1.31), above ionized
         mu = 0.6. Default 2.0E4 Kelvin.
+    r_factor : float, optional
+        For "contained" radii within which to calculate total mass, default
+        1.0.
     """
 
     ds_list = sim.plt_list
@@ -921,31 +924,41 @@ def dwarf_mass(sim, out_file, tmin=None, tmax=None, dt=None, mode='grav', T_rang
            
 
             sim.dwarf_mass[mode][k] = total_mass
-            file.write(format%(ds.current_time.convert_to_units('Myr'),total_mass))
+            file.write(format%(ds.current_time.convert_to_units('Myr'), total_mass))
             i = i + 1
     
     elif mode == 'contained':
         # calculate the total dwarf mass as just the total mass contained
         # within the initial dwarf radius (with optional temperature cuts)
         i = 0
-        for dsname in ds_list[ds_min:ds_max]:
-            _myprint("Calculating mass for file %4i of %4i"%(i+ds_min+1,ds_max-ds_min+1))
+        for k in ds_selection:
+
+            dsname = ds_list[k]
+            
+            _myprint("Calculating mass for file %4i of %4i"%(k,np.size(ds_selection)))
             
             ds = yt.load(dsname); data = ds.all_data()
 
-            sp = ds.sphere(sim.center,sim.radius)
+            sp = ds.sphere(sim.center, r_factor * sim.radius)
             mass = sp['dens'] * sp['dx'] * sp['dy'] * sp['dz']
             
             if len(T_range) == 2:
                 T = sp['temp'].convert_to_units('K')
+                
+                if not hasattr(T_range,'convert_to_units'):
+                    T = T.value
+                
                 total_mass = np.sum(mass[(T >= T_range[0])*(T<=T_range[1])])
 
 
             else:
                 total_mass = np.sum(mass)
 
-            sim.dwarf_mass[mode][i + ds_min] = total_mass
-            file.write(format%(ds.current_time.convert_to_units('Myr').value,total_mass.value))
+
+            total_mass = total_mass.convert_to_units('Msun')
+            
+            sim.dwarf_mass[mode][k] = total_mass
+            file.write(format%(ds.current_time.convert_to_units('Myr').value, total_mass.value))
             i = i + 1
 
     file.close()
