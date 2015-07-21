@@ -110,7 +110,7 @@ class analytical_dwarf:
                                decay=False, r_decay=None)
         
         
-    def evolve(self, t, included_physics, physics_kwargs={}):
+    def evolve(self, t, included_physics, physics_kwargs={}, **kwargs):
         """
         Wrapper around evolve_satellite function. Automatically supplies orbital params
         and galaxy profile functions to evolve_satellite based upon the initial conditions 
@@ -134,7 +134,7 @@ class analytical_dwarf:
         M, R = \
                 evolve_satellite(t, included_physics, self.halo_density, self.galaxy_velocity,
                                               self.gas_profile, self.DM_profile, self.M_o, self.R_o,
-                                              physics_kwargs=physics_kwargs)
+                                              physics_kwargs=physics_kwargs, **kwargs)
                 
         self.M = M
         self.R = R
@@ -159,7 +159,7 @@ class analytical_dwarf:
         
         
 
-def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, galaxy_gas_density, rho_DM, M_o, R_o, physics_kwargs={}):
+def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, galaxy_gas_density, rho_DM, M_o, R_o, physics_kwargs={}, RPS_KH_exclusive = False):
     """
     This function evolves the satellite given a list of desired physical processes
     to model for mass loss in the dwarf galaxy. The included_physics list is currently
@@ -195,6 +195,12 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
         Initial total gas mass of galaxy
     R_o : float
         Initial (gas) radius of galaxy
+    RPS_KH_exclusive: logical, optional
+        If set to True, makes RPS and KH instability stripping mutually exclusive. If 
+        RPS condition is met, RPS is assumed to dominate mass stripping and KH is turned off.
+        KH only occurs, therefore, when RPS condition is not met. Default False.
+    
+    
         
     Returns
     -------
@@ -202,7 +208,6 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
         Arrays of gas mass and radius evolution of dwarf galaxy over time.
       
     """
-    
     # included physics is going to be a list of the physics "modules" to evovel
     # right now, options should be 'KH' and 'RPS'
     
@@ -218,19 +223,20 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     if not hasattr(galaxy_gas_density, '__call__'):
         galaxy_gas_density = lambda x : galaxy_gas_density # constant!
     
-
+    # assume KH and RPS are off unless in list of included physics
     KH_const = 0.0; RPS_const = 0.0
+    
     if 'KH' in included_physics:
         KH_const = 1.0
 
-    if not 'KH' in physics_kwargs.keys():
+    if not 'KH' in physics_kwargs.keys(): # bookkeeping if off
         physics_kwargs['KH'] = {}
     
     
     if 'RPS' in included_physics:
         RPS_const = 1.0
         
-    if not 'RPS' in physics_kwargs.keys():
+    if not 'RPS' in physics_kwargs.keys(): # bookkeeping if off
         physics_kwargs['RPS'] = {}
     
     # if alpha is contained in physcis kwargs... strip it to be 
@@ -270,11 +276,27 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
             else:
                 RPS_const = 0.0 
         
-        soln = integrate.odeint(ode_function, [M[i],R[i]], t[i:i+2], args=(KH_const,RPS_const,) )
+            if RPS_KH_exclusive and RPS_const == 1.0:   # turn KH off
+                turn_KH_off = 0.0
+            elif RPS_KH_exclusive and RPS_const == 0.0: # turn KH on
+                turn_KH_off = 1.0
+            else:                          # else just keep it the same
+                turn_KH_off = KH_const 
+               
+        ode_function_args = (KH_const * turn_KH_off, RPS_const,)
+        
+       
+        
+        soln = integrate.odeint(ode_function, [M[i],R[i]], t[i:i+2], 
+                                    args=ode_function_args,
+                                    mxhnil=0,ixpr=False)
         M[i+1] = soln[1,0]; R[i+1] = soln[1,1]
         
         i = i + 1
-        if M[i] <= 0 or R[i] <=0:
+        
+        simple_check = M[i] + ode_function([M[i],R[i]], t[i], *ode_function_args)[0] * (t[i] - t[i-1])
+        
+        if M[i] <= 0.0 or R[i] <= 0.0 or simple_check <= 0.0:
             M[i] = 0.0; R[i] = 0.0
             keep_looping = False
             
