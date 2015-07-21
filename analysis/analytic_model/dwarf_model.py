@@ -138,6 +138,8 @@ class analytical_dwarf:
                 
         self.M = M
         self.R = R
+        self.t = t
+        
         return M, R
         
         
@@ -156,9 +158,21 @@ class analytical_dwarf:
         self.simulation_data['time'] = data['t'] # assuming in millions of years
         
         
+    def evaluate_KH_timescale(self):
         
-        
+        self.KH_timescale = np.zeros(np.size(self.R))
 
+        i = 0
+        for R,t in zip(self.R,self.t):
+            self.KH_timescale[i] = KH_condition_timescale(R, self.DM_profile, self.gas_profile,
+                                   self.halo_density(t)/(self.ic['mu_halo']*cgs.mp), 
+                                   self.galaxy_velocity(t))
+            i = i + 1
+            
+        return self.KH_timescale
+
+                                   
+                                   
 def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, galaxy_gas_density, rho_DM, M_o, R_o, physics_kwargs={}, RPS_KH_exclusive = False):
     """
     This function evolves the satellite given a list of desired physical processes
@@ -460,7 +474,7 @@ def rps_timescale(rho_halo, rho_o, v_dwarf, r_o,
 
     return tau
 
-def KH_timescale(M_gas, r_o, rho_halo, rho_dwarf, v_dwarf,
+def KH_timescale(M_gas, r_o, rho_halo, v_dwarf,
                  T_halo, T_dwarf, n_halo=None, mu_halo=0.61,mu_dwarf=1.31,
                  gamma=5.0/3.0):
     """
@@ -476,3 +490,25 @@ def KH_timescale(M_gas, r_o, rho_halo, rho_dwarf, v_dwarf,
     M_rate = np.pi * r_o**2 * rho_halo * v_dwarf * (cs_dwarf/cs_halo)
 
     return M_gas / M_rate
+
+def KH_condition_timescale(r, DM_density, gas_density, n_halo, v_dwarf,
+                                  mu_halo=0.61, mu_dwarf=1.31):
+   
+    # find the mass profile from density profile
+    DM_integrand = lambda x: x*x*DM_density(x)
+    gas_integrand = lambda x: x*x*gas_density(x)
+    
+    M_DM  = 4.0*np.pi* integrate.quad(DM_integrand,  0.0, r)[0]
+    M_gas = 4.0*np.pi* integrate.quad(gas_integrand, 0.0, r)[0]       
+        
+    F = M_gas / (M_DM + M_gas)    
+    
+    M_DM = M_DM / cgs.Msun
+    v_dwarf = v_dwarf / cgs.km
+        
+        
+    # From McCarthy et. al. 2008 ... MDM is in Msun below, rho_halo in cc .. v_dwarf in km/s  
+    # gives timescale in years
+    tau_kh = 2.19E9*(F/0.1) * (M_DM / 1.0E9)**(1.0/7.0) * (n_halo / 1.0E-4)**(-1.0) * (v_dwarf/1.0E3)**(-1)
+  
+    return tau_kh * cgs.yr
