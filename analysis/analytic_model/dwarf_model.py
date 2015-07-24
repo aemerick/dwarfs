@@ -5,6 +5,8 @@ import numpy as np
 import cgs as cgs
 from initial_conditions import profiles as prof
 
+import copy
+
 from scipy import integrate
 from scipy import interpolate
 
@@ -224,7 +226,8 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     """
     # included physics is going to be a list of the physics "modules" to evovel
     # right now, options should be 'KH' and 'RPS'
-    
+
+    physics_kwargs_copy = copy.deepcopy(physics_kwargs)
     # do a check of input parameters. Are they functions or constants?
     
     if not hasattr(halo_gas_density, '__call__'):
@@ -243,22 +246,21 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     if 'KH' in included_physics:
         KH_const = 1.0
 
-    if not 'KH' in physics_kwargs.keys(): # bookkeeping if off
-        physics_kwargs['KH'] = {}
-    
+    if not 'KH' in physics_kwargs_copy.keys(): # bookkeeping if off
+        physics_kwargs_copy['KH'] = {}
     
     if 'RPS' in included_physics:
         RPS_const = 1.0
         
-    if not 'RPS' in physics_kwargs.keys(): # bookkeeping if off
-        physics_kwargs['RPS'] = {}
+    if not 'RPS' in physics_kwargs_copy.keys(): # bookkeeping if off
+        physics_kwargs_copy['RPS'] = {}
     
     # if alpha is contained in physcis kwargs... strip it to be 
     # used in the RPS condition function call, as it is not used in the
     # RPS mass loss rate calculation
-    if 'alpha' in physics_kwargs['RPS'].keys():
-        alpha = physics_kwargs['RPS']['alpha']
-        physics_kwargs['RPS'].pop('alpha',None)
+    if 'alpha' in physics_kwargs_copy['RPS'].keys():
+        alpha = physics_kwargs_copy['RPS']['alpha']
+        physics_kwargs_copy['RPS'].pop('alpha',None)
     else:
         alpha = 1.0
         
@@ -267,25 +269,28 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     
     ode_function = lambda y, t, A, B:\
                  A *  _KH_evolution(y, t, halo_gas_density, galaxy_velocity,
-                                                 galaxy_gas_density, **physics_kwargs['KH'])+\
+                                                 galaxy_gas_density, **physics_kwargs_copy['KH'])+\
                  B * _RPS_evolution(y, t, halo_gas_density, galaxy_velocity,
                                            galaxy_gas_density,
-                                           galaxy_gas_density(0.0), **physics_kwargs['RPS'])
+                                           galaxy_gas_density(0.0), **physics_kwargs_copy['RPS'])
     
     # write a loop here... solve step by step
     M = np.zeros(np.size(t)); R = np.zeros(np.size(t))
     M[0] = M_o; R[0] = R_o
-    keep_looping = True; i = 0
+    keep_looping = True; i = 0; turn_KH_off = 1.0 
     while (i < np.size(t) - 1) and keep_looping:
         
         # check if ram pressure stripping occurs
         if 'RPS' in included_physics:
             # integrate and test around the current radius
-            rps_cond = _RPS_condition(np.linspace(0.9999*R[i],1.0001*R[i],5), rho_DM, galaxy_gas_density, 
-                                               halo_gas_density(t[i]), galaxy_velocity(t[i]), alpha=alpha)
+#            rps_cond = _RPS_condition(np.linspace(0.9999*R[i],1.0001*R[i],5), rho_DM, galaxy_gas_density, 
+#                                               halo_gas_density(t[i]), galaxy_velocity(t[i]), alpha=alpha)
+
+            rps_cond = _RPS_condition(R[i], rho_DM, galaxy_gas_density, halo_gas_density(t[i]),
+                                                    galaxy_velocity(t[i]), alpha=alpha)
             
             # if RPS is valid at current radius, use it... otherwise set to zero
-            if rps_cond[3] > 0:
+            if rps_cond  > 0:
                 RPS_const = 1.0
             else:
                 RPS_const = 0.0 
@@ -303,7 +308,7 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
         
         soln = integrate.odeint(ode_function, [M[i],R[i]], t[i:i+2], 
                                     args=ode_function_args,
-                                    mxhnil=0,ixpr=False)
+                                    mxhnil=0, ixpr=False)
         M[i+1] = soln[1,0]; R[i+1] = soln[1,1]
         
         i = i + 1
@@ -323,6 +328,12 @@ def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, al
     # find the mass profile from density profile
     DM_integrand = lambda x: x*x*DM_density(x)
     gas_integrand = lambda x: x*x*gas_density(x)
+
+    return_float = False
+    if np.size(r) == 1:
+        r = np.array([0.0,r])
+        return_float = True
+
     M_DM      = np.zeros(np.size(r)-1)
     M_gas     = np.zeros(np.size(r)-1)
     
@@ -331,10 +342,13 @@ def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, al
         M_gas[i-1] = 4.0*np.pi* integrate.quad(gas_integrand, 0.0,r[i])[0]
     
     # Now, calculate the RHS and LHS of the stripping condition
-    RHS = (M_DM + M_gas) * gas_density(r[:-1]) / r[:-1] * cgs.G * alpha
+    RHS = (M_DM + M_gas) * gas_density(r[1:]) / r[1:] * cgs.G * alpha
     LHS = halo_density * galaxy_velocity * galaxy_velocity
     
-    return LHS - RHS
+    if return_float:
+        return np.float((LHS-RHS)[0])
+    else:
+        return LHS - RHS
     
 
 def _KH_evolution(y, t, halo_gas_density, galaxy_velocity, galaxy_gas_density, beta=1.0):
