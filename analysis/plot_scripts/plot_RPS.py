@@ -58,7 +58,7 @@ for i in np.arange(len(alpha)):
         M_o = LT_dict[name].ic['M_HI'] + LT_dict[name].ic['M_DM']
         r_o = LT_dict[name].ic['r_HI']
 
-        P_anal   = alpha[i] * cgs.G * n_sample * M_o / (3.0*r_o) * 1.31 * cgs.mp
+        P_anal   = alpha[i] * cgs.G * n_sample * M_o / (r_o) * 1.31 * cgs.mp
         plt.plot(n_sample, P_anal, ls = linestyle[j], lw = 2.5, color = color[i])
 
         j = j + 1
