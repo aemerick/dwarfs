@@ -9,6 +9,7 @@ import copy
 
 from scipy import integrate
 from scipy import interpolate
+from scipy.optimize import brentq 
 
 
 # given an orbit of a dwarf galaxy as a function of time
@@ -173,6 +174,84 @@ class analytical_dwarf:
             
         return self.KH_timescale
 
+    
+    # RPS stripping radius
+    def RPS_stripping_radius(self, alpha=1.0):
+        """
+        Computes the ram pressure stripping radius, defined as the radius down to which the ram pressure
+        stripping condition is no longer satisfied. Returns the stripping radius, along with the total
+        mass stripped (i.e. mass contained within R_strip and R_o of the gas density profile).
+    
+        DM_density : function
+            Function of radius that returns the dark matter density
+        gas_density : function
+            Function of radius that returns the gas density
+        halo_density : 
+    
+        """    
+        
+        # loops over RPS condition to find where it is zero ... first checks RPS condition at zero
+        RPS_condition_center = self.halo_density(0.0)*self.galaxy_velocity(0.0)**2 -\
+                               alpha * (cgs.G * (self.ic['M_DM'] + self.ic['M_HI']) * self.ic['n_o']*cgs.mp*self.ic['mu_dwarf'])/ self.ic['r_HI']
+        
+        #_RPS_condition(0.5*cgs.pc, self.DM_profile, self.gas_profile, self.halo_density(0.0),
+                               #                     self.galaxy_velocity(0.0), alpha=alpha)
+        RPS_condition_edge   = _RPS_condition(self.ic['r_HI'], self.DM_profile, self.gas_profile, self.halo_density(0.0),
+                                                    self.galaxy_velocity(0.0), alpha=alpha)
+        
+        if RPS_condition_center >= 0.0:
+        
+            predicted_R_strip = 0.0 ; predicted_M_final = 0.0
+        
+        elif RPS_condition_edge <= 0.0:
+            
+            predicted_R_strip = self.ic['r_HI'] ; predicted_M_final = self.ic['M_HI']
+            
+        else: # it is somewhere in between... solve
+            
+            
+            eq_to_solve = lambda x : _RPS_condition( x, self.DM_profile, self.gas_profile, self.halo_density(0.0),
+                                                        self.galaxy_velocity(0.0), alpha = alpha)
+        
+        
+            # there is a chance that the naive r values to look between both have the same sign
+            f_a = 0.25*cgs.pc ; f_b = self.ic['r_HI']
+            
+            if np.sign(eq_to_solve(f_a)) == np.sign(eq_to_solve(f_b)):
+                # sample at many radii and help out the root solver
+                r_sample             = np.linspace(0.1 * cgs.pc, self.ic['r_HI'], 1000.0)
+                dr = r_sample[1] - r_sample[0]
+                RPS_condition_sample = eq_to_solve(r_sample)
+                
+                l = np.sign(RPS_condition_sample[:-1])
+                r = np.sign(RPS_condition_sample[1: ])
+                
+                sign_sum = l + r # either 2, 0, or -2 ... want the zeros
+                r_near_root = r_sample[sign_sum == 0]
+                print r_near_root
+                if np.size(r_near_root) > 1:
+                    r_near_root = r_near_root[-1]
+                else:
+                    r_near_root = float(r_near_root)
+                
+                f_a = r_near_root - 2.0* dr ; f_b = r_near_root + 2.0*dr
+            
+                predicted_R_strip = brentq(eq_to_solve, f_a, f_b)
+            else:
+                predicted_R_strip = brentq(eq_to_solve, f_a, f_b)
+            
+            # now calcualte the mass remaining within R_strip
+            gas_integrand = lambda x: x*x*self.gas_profile(x)
+            predicted_M_final = 4.0*np.pi* integrate.quad(gas_integrand, 0.0, predicted_R_strip)[0]
+
+            
+            
+            
+        self.predicted_R_strip = predicted_R_strip
+        self.predicted_M_final = predicted_M_final
+        
+        
+        return self.predicted_R_strip, self.predicted_M_final
                                    
                                    
 def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, galaxy_gas_density, rho_DM, M_o, R_o, physics_kwargs={}, RPS_KH_exclusive = False):
@@ -322,6 +401,12 @@ def evolve_satellite(t, included_physics, halo_gas_density, galaxy_velocity, gal
     
     return M, R
 
+
+
+    
+    
+    
+    
 def _RPS_condition(r, DM_density, gas_density, halo_density, galaxy_velocity, alpha=1.0):
     # need DM density profile, gas density profile, and 
     
