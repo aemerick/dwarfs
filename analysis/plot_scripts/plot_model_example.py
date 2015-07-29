@@ -29,7 +29,7 @@ npoints = np.ceil((tmax - tmin)/dt)
 
 t = np.linspace(tmin, tmax, npoints)*cgs.Myr
 
-shock_kwargs = {'RPS':{'alpha': 1.475,'beta': 0.800,'method':'shock'},'KH':{'beta': 5.}}
+shock_kwargs = {'RPS':{'alpha': 1.475,'beta': 0.800,'method':'shock'},'KH':{'beta': 6.0}}
 
 # do the full plot
 M , R = anal_model.evolve(t, ['RPS','KH'], RPS_KH_exclusive = True, physics_kwargs=shock_kwargs)
