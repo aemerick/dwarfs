@@ -1297,7 +1297,7 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
     file.close()
     return 
 
-def profile_1D(sim, x_field, y_field, nbins=10, weight_field='cell_mass', tmin = None, tmax = None,
+def profile_1D(sim, x_field, y_field, xlim, nbins=10, weight_field='cell_mass', tmin = None, tmax = None,
                dt = None, accumulation=False, ds_selection=None):
     """
     
@@ -1351,12 +1351,12 @@ def profile_1D(sim, x_field, y_field, nbins=10, weight_field='cell_mass', tmin =
         # load file and create sphere on simulation center
         ds_name = ds_list[k]
         ds = yt.load(ds_name)
-        sp = ds.sphere(sim.center,sim.radius)
+        sp = ds.sphere(sim.center,xlim[1])
         
         # calculate all of the desired profiles and save them
         for x in x_field:
-            profile = yt.Profile1D(sp, x, nbins, 0.0*yt.units.pc, 
-                                   sp.radius,x_log=False, weight_field=weight_field)
+            profile = yt.Profile1D(sp, x, nbins, xlim[0], xlim[1],
+                                   x_log=False, weight_field=weight_field)
     
             for y in y_field:
                 profile.add_fields(y)
