@@ -22,7 +22,7 @@ mass_file_ext = '_cont_mass_1-0.dat'
 # load known subdirectories
 sub_dirs = next(os.walk(work_dir))[1]
 
-sim_names = [s for s in sub_dirs if 'LT' in s and not 'radbox' in s]
+sim_names = [s for s in sub_dirs if 'LT' in s and ((not 'radbox' in s) and (not 'SN' in s) and (not 'sn' in s) and (not 'radtunnel' in s))]
 sim_dirs  = [work_dir + '/' + s for s in sim_names]
 
 mass_files = [s + '/' + name + mass_file_ext for s,name in zip(sim_dirs,sim_names)]

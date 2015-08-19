@@ -9,7 +9,8 @@
 #                 yt 3.x
 #    Created : Nov. 2014
 #    Author  : Andrew Emerick 
-#    Affil   : Columbia University - American Museum of Natural History
+#    Affil   : Columbia University 
+#              American Museum of Natural History
 #    Contact : emerick@astro.columbia.edu
 #
 
@@ -68,7 +69,7 @@ class simulation: # need a better name
 
 
     def __init__(self, ds_prefix, param_file = "flash.par", ds_dir="./",
-                       exact_times=True, reload_times=False):
+                       exact_times=True, calc_radius = True, reload_times=False):
         """
         Initiate simulation class
 
@@ -139,7 +140,10 @@ class simulation: # need a better name
         self._load_SB_data()
 
         # define the radius using the cloud temperature
-        self._find_radius()
+        if calc_radius:
+            self._find_radius()
+        else:
+            self.radius = -1.0
 
 
 
@@ -162,9 +166,23 @@ class simulation: # need a better name
         r = self.dist_from_center(x,y,z)
 
         T = data['temp'].convert_to_units('K')
-        tcloud = self.params['sim_TCloud']
+        #tcloud = self.params['sim_TCloud']
 
-        rdwarf = r[np.abs(T-tcloud)/tcloud < 0.1]
+        #rdwarf = r[np.abs(T-tcloud)/tcloud < 0.1]
+        
+#        sp = ds.sphere(self.center, (2.0,'kpc'))
+
+#        @derived_field(name='cold_gas_mass',units='g')
+#        def _cold_gas_mass(field,data):
+#            const = np.ones(np.shape(data[('gas','cell_mass')]))
+##            const[ data['temp'] <= 2.0*yt.units.K ] = 0.0
+#            return const * data[('gas','cell_mass')]
+ 
+#        ds.add_field('cold_gas_mass',function=_cold_gas_mass,units='g')
+#        yt.create_profile(sp, 'radius', '
+        #print T, r, T[T<2.0E4*yt.units.K]
+        
+        rdwarf = np.max(r[(T <= 2.0E4*yt.units.K)])
         rdwarf = rdwarf.convert_to_units('pc')
 
         self.radius = np.max(rdwarf)
@@ -508,6 +526,10 @@ class SNSB:
 
         self.data = data
         
+        # store recenterd positions seperately from data file
+        self.x , self.y, self.z = self._recenter_pos()
+
+        
     def plot_positions(self, **kwargs):
         """
         returns a 3d matplotlib plot of the 3d positions
@@ -538,6 +560,19 @@ class SNSB:
         self.data['posy']   = self.data['posy']*  u.cm
         self.data['posz']   = self.data['posz']*  u.cm
     
+
+    def position_spherical_coords(self):
+        """
+        Returns SNe positions in spherical coordinates
+        """
+        x = self.x ; y = self.y ; z = self.z
+        
+        
+        r     = np.sqrt(x**2 + y**2 + z**2)
+        theta = np.arctan2( y , x )
+        phi   = np.arccos(  z / r )
+        
+        return r, theta, phi
 
 # end SNSB general class
 
@@ -1297,7 +1332,7 @@ def dwarf_radius(sim, outfile, tmin=None, tmax=None,
     file.close()
     return 
 
-def profile_1D(sim, x_field, y_field, xlim, nbins=10, weight_field='cell_mass', tmin = None, tmax = None,
+def profile_1D(sim, x_field, y_field, xlim, nbins=10, weight_field='cell_volume', tmin = None, tmax = None,
                dt = None, accumulation=False, ds_selection=None):
     """
     
