@@ -4,6 +4,14 @@ from scipy.misc import derivative
 from scipy import integrate
 import cgs as cgs
 
+#
+#
+#
+#    density profile is wrong ... . .. dumbb above rvir ... should be rho(r_vir) * rest
+#    the derivatives are probably wrong in this case then... and a lot simpler
+#
+#
+
 class density_profile:
 
     def __init__(self, name, density_function, *density_args):
@@ -151,7 +159,7 @@ class general_dm_profile:
 
         rho[r > self.r_vir ] = rho[r>self.r_vir] * (r[r>self.r_vir]/self.r_vir)**(self.epsilon) *\
                                                    np.exp(-(r[r>self.r_vir]-self.r_vir)/self.r_decay)
-
+       
 
 
 
