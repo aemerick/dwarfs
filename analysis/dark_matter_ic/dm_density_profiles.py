@@ -4,13 +4,6 @@ from scipy.misc import derivative
 from scipy import integrate
 import cgs as cgs
 
-#
-#
-#
-#    density profile is wrong ... . .. dumbb above rvir ... should be rho(r_vir) * rest
-#    the derivatives are probably wrong in this case then... and a lot simpler
-#
-#
 
 class density_profile:
 
@@ -48,7 +41,7 @@ class general_dm_profile:
  
         #density_profile.__init__(self, name, self.density)
         self.name    = name
-        self.small_r = 1.0E-6 * cgs.pc
+        self.small_r = 1.0E-100 * cgs.pc
 
         self._set_params()
  
@@ -95,8 +88,8 @@ class general_dm_profile:
 
         
  
-        self.rho_s = (self.M_vir/4.0*np.pi) * (integrate.quad(integrand, rmin, rmax)[0])**(-1.0)
-        
+        self.rho_s = (self.M_vir/(4.0*np.pi)) * (integrate.quad(integrand, rmin, rmax)[0])**(-1.0)
+
     def calculate_epsilon(self):
         """
         Calculates the exponent in the exponential decay portion of the density profile
@@ -246,6 +239,36 @@ class general_dm_profile:
             return second_deriv
 
     def cumulative_mass(self, r):
+        """
+        Uses the defined density function to compute the cumulative mass interior to some radius r.
+        """ 
+        self._set_values_check()
+        alpha, beta, gamma = self.profile_shape_params
+
+        r = np.asarray(r)
+        scalar_input = False
+        if r.ndim == 0:
+            r = r[None]
+            scalar_input = True
+   
+        mass = np.zeros(np.shape(r))
+        integrand = lambda x : 4.0 * np.pi * x * x * self.density(x)
+
+        prev_mass = 0.0; rlow = self.small_r
+        for i in np.arange(np.size(r)):
+            mass[i] = integrate.quad(integrand, rlow, r[i])[0] + prev_mass
+            prev_mass = 1.*mass[i] ; rlow = 1.*r[i]
+
+        if scalar_input:
+            return np.squeeze(mass)
+        else:
+            return mass
+
+    def potential(self, r):
+
+        """
+        Uses the defined density function to compute the cumulative mass interior to some radius r.
+        """ 
         self._set_values_check()
         alpha, beta, gamma = self.profile_shape_params
 
@@ -256,17 +279,33 @@ class general_dm_profile:
             scalar_input = True
    
 
+        A = self.cumulative_mass(r) / r
 
+        integrand = lambda x : x * self.density(x)
+ 
+        B = np.zeros(np.shape(r))
+        i = 0
+        for rval in r:
+            B[i] = 4.0 * np.pi * integrate.quad(integrand, r[i], np.inf)[0]
+            i = i + 1
 
-        mass = np.zeros(np.shape(r))
-        integrand = lambda x : 4.0 * np.pi * x * x * self.density(x)
-
-        prev_mass = 0.0; rlow = self.small_r
-        for i in np.arange(np.size(r)):
-            mass[i] = integrate.quad(integrand, rlow, r[i])[0] + prev_mass
-            prev_mass = mass[i] ; rlow = r[i]
+        pot = -1.0 * cgs.G * (A + B)
 
         if scalar_input:
-            return np.squeeze(mass)
+            return np.squeeze(pot)
         else:
-            return mass
+            return pot
+
+    def dPhi_dr(self, r):
+        """
+        Computes derivative of potential with respect to radius
+        """
+     
+        return cgs.G * self.cumulative_mass(r) / r**2.0
+
+    def d2Phi_dr2(self, r):
+        """
+        Second derivative of the potential with respect to radius
+        """
+
+        return 4.0 * np.pi * cgs.G * self.density(r) - 2.0 * self.dPhi_dr(r) / r
