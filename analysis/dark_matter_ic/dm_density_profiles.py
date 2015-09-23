@@ -1,3 +1,5 @@
+from __future__ import division
+
 import numpy as np
 
 from scipy.misc import derivative
@@ -41,7 +43,13 @@ class general_dm_profile:
  
         #density_profile.__init__(self, name, self.density)
         self.name    = name
+
+        # set values for large and small r ... this is for integration purposes
+        # mostly. Using np.inf for large r does not work always. Must be careful with this one
+        # default values for large and small r are below
+        # when r_vir is set, large r is automaticall scaled to 10,000 * virial radius
         self.small_r = 1.0E-100 * cgs.pc
+        self.large_r = 1.0E4    * cgs.kpc
 
         self._set_params()
  
@@ -66,7 +74,10 @@ class general_dm_profile:
                 print 'Profile shape must have 3 parameters (alpha, beta, gamma)'
 
         if (not r_s      == None): self.r_s      = r_s      ; self.calculate_epsilon()
-        if (not r_vir    == None): self.r_vir    = r_vir    ; self.calculate_epsilon()
+
+        if (not r_vir    == None): 
+            self.r_vir = r_vir ; self.large_r = 1.0E3 * self.r_vir; self.calculate_epsilon()
+
         if (not r_decay  == None): self.r_decay  = r_decay  ; self.calculate_epsilon()
         if (not rho_s    == None): self.rho_s    = rho_s
         if (not M_vir    == None): self.M_vir    = M_vir
@@ -132,29 +143,25 @@ class general_dm_profile:
         if r.ndim == 0:
             r = r[None]
             scalar_input = True
-
-
-
-
+        
         rho = np.zeros(np.shape(r))
 
+      #  c = (r / self.r_s)
+       # rho = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha) )
+
+        
         # calculate for values less than the virial radius
         c = (r[r <= self.r_vir] / self.r_s)
         rho[r <= self.r_vir] = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha) )
- 
-        
-      
-        # now calculate it for values greater than the virial radius
+   
+        # now calculate for values greater than the virial radius
         c = self.r_vir / self.r_s
-
-
+  
         rho[r > self.r_vir ] = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha))
-
+   
         rho[r > self.r_vir ] = rho[r>self.r_vir] * (r[r>self.r_vir]/self.r_vir)**(self.epsilon) *\
-                                                   np.exp(-(r[r>self.r_vir]-self.r_vir)/self.r_decay)
+                                                    np.exp(-(r[r>self.r_vir]-self.r_vir)/self.r_decay)
        
-
-
 
         if scalar_input:
             return np.squeeze(rho)
@@ -252,12 +259,14 @@ class general_dm_profile:
             scalar_input = True
    
         mass = np.zeros(np.shape(r))
-        integrand = lambda x : 4.0 * np.pi * x * x * self.density(x)
+        integrand = lambda x : x * x * self.density(x)
 
-        prev_mass = 0.0; rlow = self.small_r
+        prev_mass = 0.0; rlow = 0.0
         for i in np.arange(np.size(r)):
             mass[i] = integrate.quad(integrand, rlow, r[i])[0] + prev_mass
             prev_mass = 1.*mass[i] ; rlow = 1.*r[i]
+
+        mass = mass * 4.0 * np.pi
 
         if scalar_input:
             return np.squeeze(mass)
@@ -268,6 +277,14 @@ class general_dm_profile:
 
         """
         Uses the defined density function to compute the cumulative mass interior to some radius r.
+
+        potential defined as :
+             pot = -4*pi*G [ M(r) / r + integral(r*rho(r) dr, r, infinity) ]
+
+             in the below, A = M(r) / r ... B = integral(r*rho(r) * dr, r, infinity) 
+
+             first portion caclulated using defined cumulative mass function
+             second portion integrated here with scipy
         """ 
         self._set_values_check()
         alpha, beta, gamma = self.profile_shape_params
@@ -278,18 +295,32 @@ class general_dm_profile:
             r = r[None]
             scalar_input = True
    
+        pot = np.zeros(np.shape(r))
 
-        A = self.cumulative_mass(r) / r
-
+        # second integrand
         integrand = lambda x : x * self.density(x)
+
+
+        # integral at zero can just be written as the below
+        pot[r == 0.0] = -4.0*np.pi*cgs.G * integrate.quad(integrand, 0.0, self.large_r)[0]
+
+        # this is first
+        A = (self.cumulative_mass(r[r>0.0]) / (4.0 * np.pi)) / r[r>0.0]
  
-        B = np.zeros(np.shape(r))
+
+        # compute B:
+        # this integral behaves very badly if the upper bound is too large... not sure
+        # what is happening (difference of small ##'s somewhere?)... but just need it large enough
+        # esp as the density distribution eventually truncates... error becomes small after enough
+        # virial radii
+
+        B = np.zeros(np.shape(r[r>0.0]))
         i = 0
-        for rval in r:
-            B[i] = 4.0 * np.pi * integrate.quad(integrand, r[i], np.inf)[0]
+        for rval in r[r>0.0]:
+            B[i] = integrate.quad(integrand, rval, self.large_r)[0]
             i = i + 1
 
-        pot = -1.0 * cgs.G * (A + B)
+        pot[ r > 0.0 ] = -4.0 * np.pi * cgs.G * (A + B)
 
         if scalar_input:
             return np.squeeze(pot)
@@ -300,7 +331,7 @@ class general_dm_profile:
         """
         Computes derivative of potential with respect to radius
         """
-     
+
         return cgs.G * self.cumulative_mass(r) / r**2.0
 
     def d2Phi_dr2(self, r):
