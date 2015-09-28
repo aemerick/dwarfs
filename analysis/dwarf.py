@@ -148,7 +148,7 @@ class simulation: # need a better name
 
 
         # load the simulation times 
-        filename = ds_dir + ds_prefix + "times.dat"
+        filename = ds_dir + "simulation_times.dat"
         self._load_times(exact_times, filename, reload_times)
 
     def _find_radius(self):
@@ -628,7 +628,7 @@ class SN(SNSB):
     
         #
     # end plot positions
-    def rate(self, sntype = 2, units="Myr"):
+    def rate(self, sntype = 2, units="Myr", binsize = None):
         """
             Calculates and returns the supernova rate.
 
@@ -650,9 +650,11 @@ class SN(SNSB):
             type_select = self.data['type'] == sntype
 
         
+        
 
         t = self.data['time'][type_select]
-        N = np.arange(1, total_SN + 1)[type_select]
+        total_SN = np.size(t)
+        N = np.arange(1, total_SN + 1)
 
         dNdt = np.zeros(t.shape, np.float)
 
@@ -660,7 +662,14 @@ class SN(SNSB):
         dNdt[0]    = (N[1]  - N[0]   )/(t[1]  - t[0]   )
         dNdt[1]    = (N[-1] - N[-2]  )/(t[-1] - t[-2]  )
 
-        
+        # if binsize is some value, do some averaging
+        if (not binsize == None):
+            nbins = np.ceil(np.max(t)/binsize)
+            bins = np.linspace(0.0, nbins * binsize, nbins + 1)
+            
+           
+            dNdt, t = np.histogram(t, bins)
+            dNdt = dNdt / binsize
 
         return t, dNdt
   
@@ -1673,3 +1682,56 @@ class dwarf:
   
        
         return prof.x_bins, prof[field]
+    
+    
+    
+def predict_stripping_time(t, m, t_fit = 100.0 * cgs.Myr):
+    """
+    Returns the stripping time assuming that evolution continues at a constant rate. 
+    Fits a line to the last X Myr of evolution. Default is 200
+    """
+    
+    # if things have units... convert to cgs
+    time_has_units = False
+    mass_has_units = False
+    
+    if hasattr(t, 'convert_to_units'):
+        time_units = t.units
+        t = t.convert_to_cgs().value
+        time_has_units = True
+        
+    if hasattr(m, 'convert_to_units'):
+        m = m.convert_to_cgs().value
+        mass_has_units = True
+        
+    if hasattr(t_fit, 'convert_to_units'):
+        t_fit = t_fit.convert_to_cgs().value
+        
+    
+    # check if mass is stripped
+    if any(m == 0.0):
+        t_strip = t[m==0.0][0]
+        
+    else: # else fit a line and make a prediction
+        selection = t >= (np.max(t) - t_fit)
+        
+        
+        t_fit = t[selection]
+        m_fit = m[selection]
+        
+        # make the fit
+        z = np.polyfit(t_fit, m_fit, 1)
+        p = np.poly1d(z)
+        
+        # find the root
+        t_strip = p.r
+    
+    # if has units... return with units and convert to Myr
+    if time_has_units:
+        t_strip = t_strip * yt.units.s
+        t_strip = t_strip.convert_to_units(time_units)
+    
+    return t_strip
+    
+    
+    
