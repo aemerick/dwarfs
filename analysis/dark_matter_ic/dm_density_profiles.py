@@ -82,6 +82,41 @@ class general_dm_profile:
         if (not rho_s    == None): self.rho_s    = rho_s
         if (not M_vir    == None): self.M_vir    = M_vir
         if (not rho_crit == None): self.rho_crit = rho_crit
+            
+        
+        if self._check_params():
+            self._calculate_system_mass()
+            
+    def _check_params(self):
+        """
+        make sure everything is set
+        """
+        everything_OK = True
+        
+        params = [self.rho_s, self.M_vir, self.rho_crit, self.r_vir, self.r_s]
+        
+        if any(p == None for p in params):
+            everything_OK = False
+            
+        if (not len(self.profile_shape_params) == 3):
+            everything_OK = False
+            
+        if ((self.profile_shape_params[1] <= 3) and (self.r_decay == None)):
+            everything_OK = False
+            
+        return everything_OK
+        
+    def _calculate_system_mass(self):
+        """
+        Calculates total system mass, or mass out to large_r. This shouldn't be more than a few percent larger
+        than M_vir (more for systems requireing the exponential density cutoff)
+        """
+        
+        
+        self.M_sys = self.cumulative_mass(self.large_r)
+        
+        return
+        
 
     def calculate_rho_s(self):
         """
@@ -146,21 +181,20 @@ class general_dm_profile:
         
         rho = np.zeros(np.shape(r))
 
-      #  c = (r / self.r_s)
-       # rho = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha) )
+        # compute the density
+        c = (r / self.r_s)
+        rho = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha) )
+   
 
-        
-        # calculate for values less than the virial radius
-        c = (r[r <= self.r_vir] / self.r_s)
-        rho[r <= self.r_vir] = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha) )
-   
-        # now calculate for values greater than the virial radius
-        c = self.r_vir / self.r_s
+        # use exponential cutoff if beta <= 3
+        if beta <= 3:
+            # now calculate for values greater than the virial radius
+            c = self.r_vir / self.r_s
   
-        rho[r > self.r_vir ] = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha))
-   
-        rho[r > self.r_vir ] = rho[r>self.r_vir] * (r[r>self.r_vir]/self.r_vir)**(self.epsilon) *\
-                                                    np.exp(-(r[r>self.r_vir]-self.r_vir)/self.r_decay)
+            rho[r > self.r_vir ] = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha))
+     
+            rho[r > self.r_vir ] = rho[r>self.r_vir] * (r[r>self.r_vir]/self.r_vir)**(self.epsilon) *\
+                                                        np.exp(-(r[r>self.r_vir]-self.r_vir)/self.r_decay)
        
 
         if scalar_input:
@@ -188,13 +222,14 @@ class general_dm_profile:
         first_deriv = np.zeros(np.shape(r))
 
 
-        rtemp = r [ r <= self.r_vir]
-        first_deriv[r <= self.r_vir] = -1.0 * self.density(rtemp)/rtemp * \
-                                    (beta * (rtemp/self.r_s)**alpha + gamma) / ((rtemp/self.r_s)**alpha + 1.0)
+        
+        first_deriv = -1.0 * self.density(r) / r * \
+                                    (beta * (r/self.r_s)**alpha + gamma) / ((r/self.r_s)**alpha + 1.0)
 
 
-        first_deriv[ r > self.r_vir ] = self.density(r[r>self.r_vir]) *\
-                                  ((self.epsilon/r[r>self.r_vir]) - 1.0 / self.r_decay)
+        if beta <= 3:
+            first_deriv[ r > self.r_vir ] = self.density(r[r>self.r_vir]) *\
+                                      ((self.epsilon/r[r>self.r_vir]) - 1.0 / self.r_decay)
         
 
 
@@ -225,18 +260,18 @@ class general_dm_profile:
         second_deriv = np.zeros(np.shape(r))
 
 
-        rtemp = r [ r <= self.r_vir]
-        c = rtemp / self.r_s
-        second_deriv[r<=self.r_vir] = self.first_derivative(rtemp) * self.first_derivative(rtemp) / self.density(rtemp)+\
-                                      self.density(rtemp) *\
+        c = r / self.r_s
+        second_deriv = self.first_derivative(r) * self.first_derivative(r) / self.density(r)+\
+                                      self.density(r) *\
                             ( (alpha*(c)**alpha * (beta*(c)**alpha + gamma)) +\
                               ((c)**alpha + 1.0)*(-alpha*beta*(c)**alpha + beta*c**alpha + gamma)) /\
-                              (rtemp*rtemp * ((c)**alpha + 1.0)**2 )
+                              (r * r * ((c)**alpha + 1.0)**2 )
 
 
-        second_deriv[r>self.r_vir] = self.first_derivative(r[r>self.r_vir])*\
-                                     (self.epsilon / r[r>self.r_vir] - 1.0/self.r_decay) -\
-                                     self.density(r[r>self.r_vir])*self.epsilon / (r[r>self.r_vir])**2
+        if beta <= 3:
+            second_deriv[r>self.r_vir] = self.first_derivative(r[r>self.r_vir])*\
+                                         (self.epsilon / r[r>self.r_vir] - 1.0/self.r_decay) -\
+                                         self.density(r[r>self.r_vir])*self.epsilon / (r[r>self.r_vir])**2
 
 
 
