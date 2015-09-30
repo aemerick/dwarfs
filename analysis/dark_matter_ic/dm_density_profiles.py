@@ -1,3 +1,13 @@
+"""
+dm_density_profiles
+
+                description: Density profile class for dark matter profiles
+                created:                 09.21.15
+                author:                  Andrew J. Emerick, Columbia University ; AMNH
+                contact:                 emerick@astro.columbia.edu
+"""
+
+
 from __future__ import division
 
 import numpy as np
@@ -5,31 +15,6 @@ import numpy as np
 from scipy.misc import derivative
 from scipy import integrate
 import cgs as cgs
-
-
-class density_profile:
-
-    def __init__(self, name, density_function, *density_args):
-
-        self.name = name
-        self._density_args = density_args
-
-    def _define_density_function(self, density_function):
-
-       self.density = lambda x : density_function(x, self._density_args)
-
-
-    def first_derivative(self, r):
-
-        return derivative(self.denisty, r, 1, args=self._density_args)
-
-    def second_derivative(self, r):
-        
-        return derivative(self.density, r, 2, args=self._density_args)
-
-    def cumulative_mass(self, r):
-    
-        integrand = lambda x : x * x * self.density(x)
 
 
 # actually... just make generalized density function and derivatives using

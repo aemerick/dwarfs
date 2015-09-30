@@ -1,3 +1,14 @@
+"""
+df
+
+                description: Distribution function class to generate a DF given a DM
+                             density profile. Following BT and Kazantizidis et. al. 2005
+                created:                 09.21.15
+                author:                 Andrew J. Emerick, Columbia University ; AMNH
+                contact:                 emerick@astro.columbia.edu
+"""
+
+
 from __future__ import division
 
 import numpy as np
@@ -260,7 +271,6 @@ def hernquist_df(E, M, a):
     F = F * ( (1.0 - 2.0*E)*(8.0*E*E - 8.0*E - 3.0) + (3.0 * np.arcsin(np.sqrt(E)))/(np.sqrt(E*(1.0-E))))
 
     return F
-
 
 
 
