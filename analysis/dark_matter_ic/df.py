@@ -27,18 +27,29 @@ class DF:
 
         self.max_E = self.relative_potential(0.0)    
 
-    def compute(self, E, M_DM, N_DM):
+    def compute(self, n_points, M_DM, N_DM,  E = None):
         """
         Tabulates the distribution function
         """
         self.M_DM = M_DM ; self.N_DM = N_DM
+
+        # if E is not specified, choose it 
+        #
+        if E == None:
+            E_max = self.relative_potential(self.dprof.small_r)
+            E_min = self.relative_potential(0.9*self.dprof.large_r)
+
+            E = np.logspace( np.log10(E_min), np.log10(E_max), n_points)
+
+            # now normalize to energy per unit mass
+           # E = E / self.M_DM
 
         # integrand:
         def _integrand(x, E_val):
 
             r_val = self._r_root_finder(x)
 
-            if x == E_val:
+            if (E_val - x) == 0.0:
                 integrand_value =  2.0 * np.sqrt(E_val) * self._d2rho_dPsi2(r_val)
 
             else:
@@ -65,16 +76,21 @@ class DF:
         i = 0; f_prev = 0.0
         for E_value in E:
             print "%03i Computing value for E = %.3E"%(i,E_value),
-            self.f[i] = integrate.quad(_integrand, lower_bound, E_value, args=(E_value,))[0] + f_prev
+            self.f[i] = integrate.quad(_integrand, lower_bound, E_value, args=(E_value,))[0] #+ f_prev
+
+
+            self.f[i] = self.f[i] + 1.0/np.sqrt(E_value) * (self.dprof.first_derivative(0.99*self.dprof.large_r))*(1.0/(self._dPsi_dr(0.99*self.dprof.large_r)))
 
             print " - f = %0.3E"%(self.f[i])
-            f_prev = self.f[i] ; lower_bound = E_value
+            #f_prev = self.f[i] ; lower_bound = E_value
             i = i + 1
 
         # multiply by the constants out front
 
 
-        normalization = self.M_DM**(3.0/2.0) / self.N_DM
+        #normalization = self.M_DM**(1.0/2.0) / self.N_DM
+        #normalization = self.dprof.M_vir**(1.0/2.0)
+        normalization = 1.0/self.dprof.M_sys
 
         self.f = self.f * normalization / (np.sqrt(8.0) * np.pi*np.pi)
 
@@ -163,6 +179,23 @@ class DF:
 
 
 
+
+
+def hernquist_df(E, M, a):
+    """
+    Computes the Hernquist distribution function, whose solution is known analytically.
+    """
+
+    # scale E
+    E = E * a / (cgs.G * M)
+
+    F = (np.sqrt(2.0) * (2.0*np.pi)**3 * (cgs.G * M * a)**(3.0/2.0))**(-1.0)
+ 
+    F = F * np.sqrt(E) / (1.0 - E)**2
+ 
+    F = F * ( (1.0 - 2.0*E)*(8.0*E*E - 8.0*E - 3.0) + (3.0 * np.arcsin(np.sqrt(E)))/(np.sqrt(E*(1.0-E))))
+
+    return F
 
 
 
