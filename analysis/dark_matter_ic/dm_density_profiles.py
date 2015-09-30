@@ -93,13 +93,16 @@ class general_dm_profile:
         """
         everything_OK = True
         
-        params = [self.rho_s, self.M_vir, self.rho_crit, self.r_vir, self.r_s]
+        params = [self.M_vir, self.r_vir, self.r_s]
         
         if any(p == None for p in params):
-            everything_OK = False
+            everything_OK = False 
+            
+        elif (self.rho_s == None):
+            self.calculate_rho_s() ; everything_OK = True
             
         if (not len(self.profile_shape_params) == 3):
-            everything_OK = False
+            everything_OK = False 
             
         if ((self.profile_shape_params[1] <= 3) and (self.r_decay == None)):
             everything_OK = False
