@@ -16,12 +16,12 @@ import numpy as np
 # for numerical derivation and integration
 from scipy      import integrate    # for quad integration
 from scipy      import optimize     # for root finder
-
+from scipy      import interpolate
 
 # constants in cgs units and unit conversions
 import cgs as cgs
 
-
+LR_FACTOR = 1.0
 
 class DF:
 
@@ -94,17 +94,17 @@ class DF:
         #
         if E == None:
             E_max = self.relative_potential(self.dprof.small_r)
-            E_min = self.relative_potential(0.9*self.dprof.large_r)
+            E_min = self.relative_potential(LR_FACTOR*self.dprof.large_r)
 
             E = np.logspace( np.log10(E_min), np.log10(E_max), n_points)
-
+        #   E = np.linspace(E_min, E_max, n_points)
            
         # integrand in the DF integral
         def _integrand(x, E_val):
 
             r_val = self._r_root_finder(x)
 
-            if (E_val - x) == 0.0:
+            if (E_val - x) <= 1.0E-15:
                 integrand_value =  2.0 * np.sqrt(E_val) * self._d2rho_dPsi2(r_val)
 
             else:
@@ -124,39 +124,43 @@ class DF:
         
 
         # be careful about the choice of the lower bound of the integral
-        lower_bound = self.relative_potential(0.9999*self.dprof.large_r)
+        lower_bound = self.relative_potential(LR_FACTOR*self.dprof.large_r)
 
         # change this to go from eval to eval
+        normalization = 1.0/self.dprof.M_sys
+        normalization =  normalization / (np.sqrt(8.0) * np.pi*np.pi)
+        
+        # save energy values
+        self.E = E
 
+        # if output
+        if (not filename == None):
+            outfile = open(filename,'w')
+            outfile.write("# E f\n")
+        
         i = 0; f_prev = 0.0
-        for E_value in E:
+        for E_value in self.E:
             if verbose:
                 print "%03i Computing value for E = %.3E"%(i,E_value),
             self.f[i] = integrate.quad(_integrand, lower_bound, E_value, args=(E_value,))[0] #+ f_prev
 
 
-            self.f[i] = self.f[i] + 1.0/np.sqrt(E_value) * (self.dprof.first_derivative(0.99*self.dprof.large_r))*(1.0/(self._dPsi_dr(0.99*self.dprof.large_r)))
+            self.f[i] = self.f[i] + 1.0/np.sqrt(E_value) * (self.dprof.first_derivative(LR_FACTOR*self.dprof.large_r))*(1.0/(self._dPsi_dr(LR_FACTOR*self.dprof.large_r)))
 
+            self.f[i] = self.f[i] * normalization
+            
             if verbose:
                 print " - f = %0.3E"%(self.f[i])
 
+            if (not filename == None):
+                outfile.write("%.8E %.8E\n"%(self.E[i],self.f[i]))
+                
+                
             i = i + 1
 
-        # multiply by the constants and normalize
-        normalization = 1.0/self.dprof.M_sys
-
-        self.f = self.f * normalization / (np.sqrt(8.0) * np.pi*np.pi)
-
-        self.E = E
-
-        # write out if filename is given
-        if (not filename == None):
-            f = open(df_filename,'w')
-            f.write("# E f\n")
-            for i in np.arange(np.size(self.f)):
-                f.write("%.8E %.8E\n"%(self.E[i],self.f[i]))
-            f.close()
         
+        if (not filename == None):
+            outfile.close()        
         
         if scalar_input:
             return np.squeeze(self.f)
@@ -213,6 +217,21 @@ class DF:
             return r
 
 
+    def interpolate_f(self, E, *args, **kwargs):
+        """
+        Uses cubic spline interpolation in log f and log E to compute f at an arbitrary location.
+        """
+       
+        log_E = np.log10(self.E)
+        log_f = np.log10(self.f)
+     
+        spline = interpolate.UnivariateSpline(log_E, log_f, *args, **kwargs)
+        
+        f = spline(np.log10(E))
+        f = 10.0**(f)
+    
+        return f
+        
     def relative_potential(self, r):
         """
         Relative potential (greek letter capital Psi) is defined here as -1.0 times the potential (greek
@@ -237,7 +256,7 @@ class DF:
         return -1.0 * self.dprof.d2Phi_dr2(r)
 
 
-
+    
 
 
 def hernquist_df(E, M, a):

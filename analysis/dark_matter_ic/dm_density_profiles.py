@@ -312,6 +312,8 @@ class general_dm_profile:
         self._set_values_check()
         alpha, beta, gamma = self.profile_shape_params
 
+        tolerance = 1.0E-16
+        
         r = np.asarray(r)
         scalar_input = False
         if r.ndim == 0:
@@ -325,10 +327,10 @@ class general_dm_profile:
 
 
         # integral at zero can just be written as the below
-        pot[r == 0.0] = -4.0*np.pi*cgs.G * integrate.quad(integrand, 0.0, self.large_r)[0]
+        pot[r <= tolerance] = -4.0*np.pi*cgs.G * integrate.quad(integrand, 0.0, self.large_r)[0]
 
         # this is first
-        A = (self.cumulative_mass(r[r>0.0]) / (4.0 * np.pi)) / r[r>0.0]
+        A = (self.cumulative_mass(r[r > tolerance]) / (4.0 * np.pi)) / r[r > tolerance]
  
 
         # compute B:
@@ -337,13 +339,13 @@ class general_dm_profile:
         # esp as the density distribution eventually truncates... error becomes small after enough
         # virial radii
 
-        B = np.zeros(np.shape(r[r>0.0]))
+        B = np.zeros(np.shape(r[r > tolerance]))
         i = 0
-        for rval in r[r>0.0]:
+        for rval in r[r > tolerance]:
             B[i] = integrate.quad(integrand, rval, self.large_r)[0]
             i = i + 1
 
-        pot[ r > 0.0 ] = -4.0 * np.pi * cgs.G * (A + B)
+        pot[ r > tolerance ] = -4.0 * np.pi * cgs.G * (A + B)
 
         if scalar_input:
             return np.squeeze(pot)
