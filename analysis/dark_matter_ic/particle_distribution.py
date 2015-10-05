@@ -121,7 +121,7 @@ class particle_distribution:
 
         self.pos = np.array([data['x'], data['y'], data['z']])
         self.pos = self.pos.T.reshape(self.N,3)
-        self.vel = np.array(data['vx'], data['vy'], data['vz']])
+        self.vel = np.array([data['vx'], data['vy'], data['vz']])
         self.vel = self.vel.T.reshape(self.N,3)
 
         print 'loaded %6i data points from '%(self.N) + file_name
