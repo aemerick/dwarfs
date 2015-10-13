@@ -61,7 +61,7 @@ class general_dm_profile:
         if (not r_s      == None): self.r_s      = r_s      ; self.calculate_epsilon()
 
         if (not r_vir    == None): 
-            self.r_vir = r_vir ; self.large_r = 1.0E3 * self.r_vir; self.calculate_epsilon()
+            self.r_vir = r_vir ; self.large_r = 10.0 * self.r_vir; self.calculate_epsilon()
 
         if (not r_decay  == None): self.r_decay  = r_decay  ; self.calculate_epsilon()
         if (not rho_s    == None): self.rho_s    = rho_s
