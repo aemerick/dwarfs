@@ -54,7 +54,7 @@ def _while_loop(pd, nmax, max_loop):
             vy = np.sin(theta) * np.sin(phi)
             vz = np.cos(theta)
                 
-            vel[index] = np.array([vx,vy,vz])
+            vel[index] = v * np.array([vx,vy,vz])
                 
              
             n_particles = n_particles + 1
