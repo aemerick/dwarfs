@@ -81,7 +81,7 @@ class particle_distribution:
             N = int(self.DF.dprof.M_sys) / M
             self.M_part = M
         else:
-            self.M_part = self.DF.dprof.M_sys
+            self.M_part = self.DF.dprof.M_sys / (1.0 * N)
 
             
         self.N_part = N
