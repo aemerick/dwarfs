@@ -140,7 +140,7 @@ class particle_distribution:
                 vy = np.sin(theta) * np.sin(phi)
                 vz = np.cos(theta)
                 
-                self.vel[n_particles] = np.array([vx,vy,vz])
+                self.vel[n_particles] = v * np.array([vx,vy,vz])
                 
              #   print 'succesfully made particle number ', n_particles
                 n_particles = n_particles + 1
