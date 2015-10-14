@@ -54,27 +54,35 @@ def Burkert_potential(r, r_s, M200, rho_crit=9.74E-30):
     c_b = 4.0 * np.pi * cgs.G * r_s**2 * rho_o
     r = r / r_s
 
-    if np.size(r) > 0:
-        phi = np.zeros(np.size(r))
-        phi[r==0] = 0.5 * c_b * (-np.pi/4.0 - 1.0)
+    r = np.asarray(r)
+    scalar_input = False
+    if r.ndim == 0:
+        r = r[None]
+        scalar_input = True
+    
+    zero = 1.0E-13
+    phi = np.zeros(np.size(r))
+    phi[r <= zero] = - 0.5 * c_b * (np.pi/2.0)
 
-        R = r[r>0] 
-        phi[r>0] = 0.5 * c_b * (0.5 * np.log(1.0+R*R) + np.arctan(R) -\
-                                0.5*(np.log(1.0+R*R) + 2.0*np.log(1.0+R))/R -\
-                                np.log(1.0+R) - np.pi/4.0) 
+    R = r[r > zero]
 
+    
+    phi[r > zero] = - 0.5 * c_b * ( (1.0/R) * (0.5*np.log(1+R*R) + np.log(1+R) - np.arctan(R)) +\
+                                       (np.log(1+R) - 0.5*np.log(1+R*R) - np.arctan(R) + np.pi/2.0) )
+    
+    #if np.size(r) > 0:
+    #     phi = np.zeros(np.size(r))
+    #    phi[r==0] = 0.5 * c_b * (-np.pi/4.0 - 1.0)
+
+    #     R = r[r>0] 
+    #    phi[r>0] = 0.5 * c_b * (0.5 * np.log(1.0+R*R) + np.arctan(R) -\
+    #                            0.5*(np.log(1.0+R*R) + 2.0*np.log(1.0+R))/R -\
+    #                            np.log(1.0+R) - np.pi/4.0) 
+
+    if scalar_input:
+        return np.squeeze(phi)
     else:
-        if r == 0:
-            phi = 0.5 * c_b * (-np.pi/4.0 - 1.0)
-
-        else:
-            phi = 0.5 * c_b * (0.5 * np.log(1.0+R*R) + np.arctan(R) -\
-                                0.5*(np.log(1.0+R*R) + 2.0*np.log(1.0+R))/R -\
-                                np.log(1.0+R) - np.pi/4.0)
-
-
-    return phi
- 
+        return phi
 
 def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30,
               decay=False, r_decay=None):
@@ -164,6 +172,7 @@ def burkert_DM(r, r_s, M200, rho_crit=9.74E-30, decay=False, r_decay=None):
         if r_decay == None:
             density[r > R200] = decay_function(r[r>R200],r_decay,R200,r_s,'Burkert')
 
+            
     return density
 
 
@@ -214,29 +223,34 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     # constant in exp from DM profile
     D_B = 4.0*np.pi*cgs.G*rho_DM*r_s**2
 
+    r = np.asarray(r)
+    scalar_input = False
+    if r.ndim == 0:
+        r = r[None]
+        scalar_input = True
+    
+    
     # R is the unitless radisu
     R = r / r_s
 
-    if np.size(R) > 1:
-        rho = np.zeros(np.size(R))
-        rho[R>0] = np.exp(-C_gas * D_B *\
-              (0.25*np.log(1.0+R[R>0]**2) + 0.5*np.arctan(R[R>0]) - 0.25*np.log(1.+R[R>0]**2)/R[R>0] -\
-               0.50*np.log(1.0+R[R>0])/R[R>0]  -0.5*np.log(1.0+R[R>0]) + 0.5))
-        rho[R==0] = 1.0
-
-    else:
-        if R == 0:
-            rho = 1.0
-        else:
-            rho = np.exp(-C_gas * D_B *\
-              (0.25*np.log(1.0+R**2) + 0.5*np.arctan(R) - 0.25*np.log(1.+R**2)/R -\
-               0.50*np.log(1.0+R)/R  -0.5*np.log(1.0+R) + 0.5))
     
+    zero = 1.0E-13
+    rho = np.zeros(np.size(R))
+    rho[R <= tolerance] = 1.0 
+
+    R = R[R > tolerance]
+
+   #rho[R > tolerance] = np.exp(-C_gas * D_B *\
+   #      (0.25*np.log(1.0+R**2) + 0.5*np.arctan(R[R>0]) - 0.25*np.log(1.+R[R>0]**2)/R[R>0] -\
+   #       0.50*np.log(1.0+R)/R  -0.5*np.log(1.0+R[R>0]) + 0.5))
 
 
     rho = rho_o * rho
    
-    return rho
+    if scalar_input:
+        return np.squeeze(rho)
+    else:
+        return rho
 
 
 
@@ -270,18 +284,21 @@ def NFW_isothermal_gas(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     rho_o = n_o * cgs.mp * mu
 
     # gas profile
+    r = np.asarray(r)
+    scalar_input = False
+    if r.ndim == 0:
+        r = r[None]
+        scalar_input = True
+        
+    zero = 1.0E-13
+    rho = np.zeros(np.size(r))
+    rho[r <= zero]   = rho_o
+    rho[r>zero] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>zero]/r_s)/(r[r>zero]/r_s)))
 
-    if np.size(r) == 1:
-        if r == 0:
-            rho = rho_o
-        elif r > 0:
-            rho = rho_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))
+    if scalar_input:
+        return np.squeeze(rho)
     else:
-        rho = np.zeros(np.size(r))
-        rho[0]   = rho_o
-        rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
-
-    return rho
+        return rho
 
 
 def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
@@ -302,7 +319,14 @@ def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
         r_s = R200 / c
     elif c == None:
         c = R200 / r_s
-
+        
+    r = np.asarray(r)
+    scalar_input = False
+    if r.ndim == 0:
+        r = r[None]
+        scalar_input = True
+        
+        
     # scale density for the DM halo
     rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
 
@@ -315,12 +339,17 @@ def NFW_isothermal_rmatch(r, r_s=None, c=None, M200=4.0E7*cgs.Msun,
     rho_o = n_o * cgs.mp * mu
 
     # gas profile
+    zero = 1.0E-13
     rho = np.zeros(np.size(r))
-    rho[0]   = rho_o
-    rho[r>0] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>0]/r_s)/(r[r>0]/r_s)))
+    rho[r <= zero]   = rho_o
+    rho[r > zero ] = rho_o * np.exp(-C_NFW * (1.0 - np.log(1.0+r[r>zero]/r_s)/(r[r>zero]/r_s)))
 
     RM = rmatch
-    return rho, RM
+    
+    if scalar_input:
+        return np.squeeze(rho), RM
+    else:
+        return rho, RM
 
 
 def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
@@ -428,7 +457,6 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
     """
 
     M200, R200, rho_s, r_s, c = solve_NFW_DM(M_DM, r_DM, r_s, rho_crit=rho_crit)
-    print 'NFW solve M200, R200, rho_s, r_s, c', M200, R200, rho_s, r_s, c
     # now solve for the central gas density given M_HI at r_HI
 
     C_NFW = 4.0*np.pi*cgs.G*rho_s*r_s**2 * mu * cgs.mp /(cgs.kb*T)
@@ -563,7 +591,6 @@ def column_density(r, density_function,R = None, f_H = 0.73, f_ion = 0.0, **kwar
         NHI[i] = integrate.quad(igrand, 1.0000000001*bval, R)[1]
         i = i + 1
    
-    print R
     return NHI * HI_factor
 
 def _run_test():
