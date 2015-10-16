@@ -2,6 +2,8 @@ from __future__ import division
 
 import numpy as np
 from scipy      import optimize     # for root finder
+from scipy      import interpolate  # for optimizing generating the PD
+
 
 import cgs as cgs
 
@@ -10,12 +12,22 @@ from multiprocessing import Pool
 import os
 
 output = multiprocessing.Queue()
+
 def _while_loop(pd, nmax, max_loop):
+    """
+    Due to the way the parallel multiprocessing works, this must be defined at the top level
+    ... there may be a better way to do this....
+    """
+    
     n_particles = 0
     loop_counter = 0
     F_max = np.max(pd.DF.f)
 
-    
+    if pd.optimize:
+        relative_potential = pd._interpolate_relative_potential
+    else:
+        relative_potential = pd.DF.relative_potential
+              
             
     pos = np.zeros((nmax, 3))
     vel  = np.zeros((nmax, 3))   
@@ -23,7 +35,7 @@ def _while_loop(pd, nmax, max_loop):
     while (( n_particles < nmax) and (loop_counter < max_loop)):
             
         r = pd._choose_position()
-        Psi = pd.DF.relative_potential(r)    
+        Psi = relative_potential(r)    
    
         v = pd._choose_velocity(r, Psi)
      
@@ -73,7 +85,33 @@ def _while_loop(pd, nmax, max_loop):
 
 class particle_distribution:
     
-    def __init__(self, DF, N, M = None):
+    def __init__(self, DF, N, M = None, optimize = False):
+        """
+        Initialize the particle_distribution class by providing a distribution function object,
+        and desired number of particles (or particle mass).
+        
+        Parameters:
+        DF  : distribution_function object
+            Distribution function object as defined in df.py. Must already have the DF evaluated
+            and interpolateable, or loaded from a file and interpolateable
+        N   : integer
+            Desired number of particles. Particle mass is computed accordingly from the total
+            system mass         
+        M   : float, optional
+            Desired particle mass (in cgs) can be provided instead of particle number. Default None
+        optimize : logical, optional
+            Turn on optimization? Default is False. Optimze on operates substantially faster for all
+            particle counts. Gains improve for larger particle count. See explanation below:
+            
+            By default, the cumulative mass 
+            function and potential of the halo are computed exactly, which requires quite a bit 
+            of numerical integration. This means things run pretty slow, even if using the
+            parallelized method. Initial tests give roughly 3-5 hours for 10k particles on 4 cores. 
+            This isn't bad, but 1E6 particles would be unfeasable. Optimize True intead tabulates 
+            cumulative mass and potential functions at the start in log R and interpolates
+            along them when they need to be evaluated. This should work fine, but does require
+            care. 
+        """
         
         self.DF = DF
         
@@ -84,39 +122,80 @@ class particle_distribution:
             self.M_part = self.DF.dprof.M_sys / (1.0 * N)
 
             
-        self.N_part = N
+        self.N_part   = N
+        self.optimize = optimize
+        self.small_r  = self.DF.dprof.small_r
         
-        # calculate some parameters important for DF
-        #_initialize_parameters()
+        if self.optimize:
+            _my_print("Optimization turned on. Sanity check your results")
+            self._optimize_npoints = 1.0E3
+            
+            self._tabulate_cumulative_mass()
+            self._tabulate_relative_potential()
+            
+            self.small_r = np.min(np.array([self._cumulative_mass_r,self._relative_potential_r]))
+            self.small_r = 10.0**self.small_r
+            
+        else:
+            _my_print("Optimization turned off. Will run slow, even if parallelized")
         
+      
         
     def generate_particle_distribution(self, max_loop = np.inf, outfile=None):
         """
         Given a distribution function (df) object, uses the accept-reject method to populate the halo
-        with N particles. Alternatively, one can specify the desired particle mass instead.
+        with N particles. Requires that object is initialized with either desired number of 
+        particles or particle mass.
+        
+        Paramters
+        ----------
+        max_loop : integer, optional
+            Maximum number of loops over accept-reject to make before quitting. This is mainly
+            for testing, to prevent an infinte loop. Default is np.inf
+            
+        outfile  : string, optional
+            Filepath to write out particle distribution. If nothing is supplied, the result is 
+            not written to file. Write out can be done at any time by calling the 
+            particle_distribution.write_pd function. Default None
+            
+        Returns
+        -------
+            Nothing. Sets IC's as particle_distribution.pos and particle_distribution.vel 
         """
     
         self.pos   = np.zeros((self.N_part, 3))
         self.vel   = np.zeros((self.N_part, 3))
          
-        # need to program the accept reject technique
+        
 
         F_max = np.max(self.DF.f)
-        print "%.4E"%(F_max)
+        
 
         n_particles = 0
         loop_counter = 0
+        
+        if self.optimize:
+            relative_potential = self._interpolate_relative_potential
+        else:
+            relative_potential = self.DF.relative_potential
+            
+        
+        
+        # Continue until max number of particles chosen, or until max loop counter
         while ((n_particles < self.N_part) and (loop_counter < max_loop)):
             
-            r = self._choose_position()
-            Psi = self.DF.relative_potential(r)    
-   
-            v = self._choose_velocity(r, Psi)
+            # choose random position, eval potential, choose velocity
+            r     = self._choose_position()
+            
+            Psi   = relative_potential(r)    
+            v     = self._choose_velocity(r, Psi)
         
-            E = Psi + 0.5 * v * v
+            E     = Psi + 0.5 * v * v
         
+            # interpolate along DF to find f(E) of chosen particle
             f_E = self.DF.interpolate_f(E)
             
+            # random number from 0 to F_max for accept reject
             F = np.random.rand() * F_max
             
             if F <= f_E: # accept particle
@@ -130,9 +209,10 @@ class particle_distribution:
                 y = np.sin(theta) * np.sin(phi)
                 z = np.cos(theta)
                 
+                # save particle position
                 self.pos[n_particles] = r * np.array([x,y,z])
                 
-                # repeat for velocity using new random numbersw
+                # repeat for velocity using new random numbers
                 theta = np.random.rand() * np.pi
                 phi   = np.random.rand() * 2.0 * np.pi
                 
@@ -140,17 +220,15 @@ class particle_distribution:
                 vy = np.sin(theta) * np.sin(phi)
                 vz = np.cos(theta)
                 
+                # save particle velocity
                 self.vel[n_particles] = v * np.array([vx,vy,vz])
                 
-             #   print 'succesfully made particle number ', n_particles
+            
                 n_particles = n_particles + 1
                 
-            else:
-               # print 'failed with F = %0.4E and F_E = %0.4E'%(F, f_E)
-	       # print 'r = %.4E, PSI = %.4E'%(r/cgs.kpc,Psi)
-                #print 'v %0.3E'%(v / cgs.km)
-                continue
-
+                            
+            if (loop_counter % 50) == 0:
+                _my_print("Have %4i particles. On loop %6i"%(n_particles, loop_counter))
             loop_counter = loop_counter + 1
                 
                 
@@ -223,11 +301,7 @@ class particle_distribution:
         
         return
     
-#    def load_pd(self, infile):
-#        data = np.genfromtxt(infline, names=True)
-#        
-#        self.pos
-    
+
     def _choose_velocity(self, r, Psi):
         
         u = np.random.rand()
@@ -246,10 +320,98 @@ class particle_distribution:
             
             return uval * m_tot - func(r)
         
-        r = optimize.brentq(_root_function, self.DF.dprof.small_r, self.DF.dprof.large_r, 
-                                 args=(self.DF.dprof.cumulative_mass,u,self.DF.dprof.M_sys,))
+        if self.optimize:
+            mass_func = self._interpolate_cumulative_mass
+        else:
+            mass_func = self.DF.dprof.cumulative_mass
+        
+        
+        if self.optimize: # allow for a couple re-draws
+            failed = False
+            try:
+                r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
+                                 args=(mass_func ,u,self.DF.dprof.M_sys,))
+            except: 
+                failed = True
+                
+            if failed: # do one re-draw
+                u = np.random.rand()
+                r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
+                                 args=(mass_func ,u,self.DF.dprof.M_sys,))
+                
+        
+        
+        else:
+            r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
+                                 args=(mass_func ,u,self.DF.dprof.M_sys,))
+        
         
         return r
+
+    def _interpolate_cumulative_mass(self, r):
+        """
+        At runtime, tabulates cumulative mass function over log r and interpolates along it
+        """
+        
+        # interpolate
+        #spline = interpolate.UnivariateSpline(self._cumulative_mass_r,
+        #                                      self._cumulative_mass_m)
+        
+        spline = interpolate.interp1d(self._cumulative_mass_r, self._cumulative_mass_m)
+        
+        return 10.0**spline(np.log10(r))
+    
+    def _interpolate_relative_potential(self, r):
+        """
+        At runtime, tabulates cumulative mass function over log r and interpolates along it
+        """
+        
+        # interpolate
+        #spline = interpolate.UnivariateSpline(self._relative_potential_r,
+        #                                      self._relative_potential_psi, k = 1)
+        
+        spline = interpolate.interp1d(self._relative_potential_r, self._relative_potential_psi)
+        
+        return 10.0**spline(np.log10(r))
+
+        
+    def _tabulate_cumulative_mass(self):
+        
+        rmax  = self.DF.dprof.large_r
+        rmin  = self.DF.dprof.large_r * 1.0E-20
+
+        # first value is zero, rest are logspaced
+        r   = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
+        #r = np.linspace(rmin, rmax, self._optimize_npoints)
+        
+        # compute cumulative mass
+        cumulative_mass = self.DF.dprof.cumulative_mass(r)
+        
+        self._cumulative_mass_r     = np.log10(r)
+        self._cumulative_mass_m     = np.log10(cumulative_mass)
+        
+        _my_print("Completed mass tabulation")
+        return
+        
+    def _tabulate_relative_potential(self):
+        
+        rmax = self.DF.dprof.large_r    
+        rmin  = self.DF.dprof.large_r * 1.0E-20
+
+                
+        # first value is zero, rest are logspaced
+        r     = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
+        #r = np.linspace(rmin, rmax, self._optimize_npoints)
+
+        # compute cumulative mass        
+        relative_potential = self.DF.relative_potential(r)
+        
+        self._relative_potential_r     = np.log10(r)
+        self._relative_potential_psi   = np.log10(relative_potential)
+        
+        _my_print("Completed potential tabulation")
+        return
+        
 
     def load_particle_ic(self, file_name):
 
@@ -261,8 +423,10 @@ class particle_distribution:
         self.pos = self.pos.T.reshape(self.N,3)
         self.vel = np.array([data['vx'], data['vy'], data['vz']])
         self.vel = self.vel.T.reshape(self.N,3)
+        
+        self.M_part = data['m'][0] # assuming all particles have same mass
 
-        print 'loaded %6i data points from '%(self.N) + file_name
+        _my_print('loaded %6i particles from '%(self.N) + file_name)
         return
 
     def r(self):
@@ -300,3 +464,6 @@ class particle_distribution:
 
         return r_cent, density
 
+    
+def _my_print(string):   
+    print "[Particle Distribution]: ", string
