@@ -225,9 +225,16 @@ class DF:
         log_E = np.log10(self.E)
         log_f = np.log10(self.f)
      
-        spline = interpolate.UnivariateSpline(log_E, log_f, *args, **kwargs)
         
-        f = spline(np.log10(E))
+        try:
+            spline = interpolate.interp1d(log_E,log_f, *args, **kwargs)
+            f = spline(np.log10(E))
+
+        except:
+            spline = interpolate.UnivariateSpline(log_E, log_f, *args, **kwargs)
+            f = spline(np.log10(E))
+
+        
         f = 10.0**(f)
     
         return f
