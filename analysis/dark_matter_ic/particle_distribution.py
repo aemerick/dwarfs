@@ -3,7 +3,7 @@ from __future__ import division
 import numpy as np
 from scipy      import optimize     # for root finder
 from scipy      import interpolate  # for optimizing generating the PD
-
+from scipy      import integrate
 
 import cgs as cgs
 
@@ -85,7 +85,7 @@ def _while_loop(pd, nmax, max_loop):
 
 class particle_distribution:
     
-    def __init__(self, DF, N, M = None, optimize = False):
+    def __init__(self, DF = None, N = None, M = None, optimize = False):
         """
         Initialize the particle_distribution class by providing a distribution function object,
         and desired number of particles (or particle mass).
@@ -115,12 +115,20 @@ class particle_distribution:
         
         self.DF = DF
         
+        
+        if (N == None and M == None and DF == None):
+            self.M_part = None
+            self.N_part = None
+            self.small_r = None
+            return
+
+        
         if (not M == None):
             N = int(self.DF.dprof.M_sys) / M
             self.M_part = M
-        else:
+        elif (not N == None):
             self.M_part = self.DF.dprof.M_sys / (1.0 * N)
-
+        
             
         self.N_part   = N
         self.optimize = optimize
@@ -387,7 +395,7 @@ class particle_distribution:
     def _tabulate_cumulative_mass(self):
         
         rmax  = self.DF.dprof.large_r
-        rmin  = self.DF.dprof.large_r * 1.0E-20
+        rmin  = self.DF.dprof.small_r
 
         
         r   = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
@@ -405,8 +413,8 @@ class particle_distribution:
         
     def _tabulate_relative_potential(self):
         
-        rmax = self.DF.dprof.large_r    
-        rmin  = self.DF.dprof.large_r * 1.0E-20
+        rmax  = self.DF.dprof.large_r    
+        rmin  = self.DF.dprof.small_r
 
                 
         r     = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
@@ -436,13 +444,13 @@ class particle_distribution:
         self.N_part = np.size(data['x'])
 
         self.pos = np.array([data['x'], data['y'], data['z']])
-        self.pos = self.pos.T.reshape(self.N,3)
+        self.pos = self.pos.T.reshape(self.N_part,3)
         self.vel = np.array([data['vx'], data['vy'], data['vz']])
-        self.vel = self.vel.T.reshape(self.N,3)
+        self.vel = self.vel.T.reshape(self.N_part,3)
         
         self.M_part = data['m'][0] # assuming all particles have same mass
 
-        _my_print('loaded %6i particles from '%(self.N) + file_name)
+        _my_print('loaded %6i particles from '%(self.N_part) + file_name)
         return
 
     def r(self):
@@ -476,7 +484,7 @@ class particle_distribution:
         r_cent = 0.5*(r_bins[1:] + r_bins[:-1])
 
         # number density
-        density = r_hist / volume
+        density = self.M_part * r_hist / volume
 
         return r_cent, density
 
@@ -488,22 +496,28 @@ class particle_distribution:
         N-body calculation. With enough particles, they should be the same.
         """
 
-        dens = self.density_profile(nbins)
+        r, dens = self.density_profile(nbins)
 
-        # define the two integrals
-        def _integrand_1():
-   
-            return 0
+        dens_function = interpolate.UnivariateSpline(r, dens)
 
-        def _integrand_2():
-  
-            return 0
 
-        # compute the potential
+        integrand_1 = lambda x : x * x * dens_function(x)
+        integrand_2 = lambda x :     x * dens_function(x)
+        
+        rmin, rmax = np.min(r), np.max(r)
+        
+        pot = np.zeros(nbins)       
+        for i in np.arange(nbins):
+            
 
-        pot = np.zeros(nbins)
+            A = integrate.quad(integrand_1, rmin,  r[i])[0]
+            B = integrate.quad(integrand_2,  r[i], rmax)[0]
 
-        return pot
+            pot[i] = A/r[i] + B
+
+        pot = - 4.0 * np.pi * cgs.G * pot
+
+        return r, pot
     
 def _my_print(string):   
     print "[Particle Distribution]: ", string
