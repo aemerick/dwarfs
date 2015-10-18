@@ -130,9 +130,11 @@ class particle_distribution:
             _my_print("Optimization turned on. Sanity check your results")
             self._optimize_npoints = 1.0E3
             
+            # tabulate profiles for interpolation
             self._tabulate_cumulative_mass()
             self._tabulate_relative_potential()
             
+            # set small r as smallest r in the interpolated profiles
             self.small_r = np.min(np.array([self._cumulative_mass_r,self._relative_potential_r]))
             self.small_r = 10.0**self.small_r
             
@@ -311,39 +313,42 @@ class particle_distribution:
         return u * v_max
     
     def _choose_position(self):
-    
-        # pick a random number 0 to 1
+        """
+        Chooses a random position for the particle weighted by the 
+        cumulative mass function. This is necessary as the particle
+        distribution is not uniform in radius. 
+        """
         
-        u = np.random.rand()
         
+        # function used to find R given M
         def _root_function(r, func, uval, m_tot):
             
             return uval * m_tot - func(r)
         
+        # optimization switches
         if self.optimize:
             mass_func = self._interpolate_cumulative_mass
         else:
+            # use exact profile
             mass_func = self.DF.dprof.cumulative_mass
         
         
-        if self.optimize: # allow for a couple re-draws
-            failed = False
+        failed = True
+        # root finder may fail occasionally if r is too close to zero
+        # keep drawing random number until it works.
+        # alternate soln would be to draw from M(small_r)/M_tot to
+        # M(large_r) / M_tot instead of 0 to 1... 
+        while failed:
+            u = np.random.rand()
+            
             try:
                 r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
-                                 args=(mass_func ,u,self.DF.dprof.M_sys,))
+                                    args=(mass_func ,u,self.DF.dprof.M_sys,))
+                failed = False
+                
             except: 
                 failed = True
-                
-            if failed: # do one re-draw
-                u = np.random.rand()
-                r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
-                                 args=(mass_func ,u,self.DF.dprof.M_sys,))
-                
-        
-        
-        else:
-            r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
-                                 args=(mass_func ,u,self.DF.dprof.M_sys,))
+
         
         
         return r
@@ -357,6 +362,8 @@ class particle_distribution:
         #spline = interpolate.UnivariateSpline(self._cumulative_mass_r,
         #                                      self._cumulative_mass_m)
         
+        # linear interpolation is more reliable, assuming number of points
+        # is large enough
         spline = interpolate.interp1d(self._cumulative_mass_r, self._cumulative_mass_m)
         
         return 10.0**spline(np.log10(r))
@@ -370,6 +377,8 @@ class particle_distribution:
         #spline = interpolate.UnivariateSpline(self._relative_potential_r,
         #                                      self._relative_potential_psi, k = 1)
         
+        # linear interpolation is more reliable assuming number of points
+        # is large enough
         spline = interpolate.interp1d(self._relative_potential_r, self._relative_potential_psi)
         
         return 10.0**spline(np.log10(r))
@@ -380,13 +389,14 @@ class particle_distribution:
         rmax  = self.DF.dprof.large_r
         rmin  = self.DF.dprof.large_r * 1.0E-20
 
-        # first value is zero, rest are logspaced
+        
         r   = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
-        #r = np.linspace(rmin, rmax, self._optimize_npoints)
+       
         
         # compute cumulative mass
         cumulative_mass = self.DF.dprof.cumulative_mass(r)
-        
+       
+        # save logged values 
         self._cumulative_mass_r     = np.log10(r)
         self._cumulative_mass_m     = np.log10(cumulative_mass)
         
@@ -399,13 +409,12 @@ class particle_distribution:
         rmin  = self.DF.dprof.large_r * 1.0E-20
 
                 
-        # first value is zero, rest are logspaced
         r     = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
-        #r = np.linspace(rmin, rmax, self._optimize_npoints)
 
-        # compute cumulative mass        
+        # compute relative potential
         relative_potential = self.DF.relative_potential(r)
-        
+
+        # save logged values        
         self._relative_potential_r     = np.log10(r)
         self._relative_potential_psi   = np.log10(relative_potential)
         
@@ -414,6 +423,13 @@ class particle_distribution:
         
 
     def load_particle_ic(self, file_name):
+        """
+        Given a file name, loads particle initial conditions.
+        Particles are assumed to have the same mass.
+        File must have headers labeled:
+          m x y z vx vy vz
+        """
+   
 
         data = np.genfromtxt(file_name, names = True)
 
@@ -464,6 +480,30 @@ class particle_distribution:
 
         return r_cent, density
 
+    def potential_from_particles(self, nbins):
+        """
+        Uses the binned density profile from the particles to calculate 
+        (approximately) what the total gravitational potential should be.
+        This should be compared to the exact potential generated by the 
+        N-body calculation. With enough particles, they should be the same.
+        """
+
+        dens = self.density_profile(nbins)
+
+        # define the two integrals
+        def _integrand_1():
+   
+            return 0
+
+        def _integrand_2():
+  
+            return 0
+
+        # compute the potential
+
+        pot = np.zeros(nbins)
+
+        return pot
     
 def _my_print(string):   
     print "[Particle Distribution]: ", string
