@@ -50,7 +50,8 @@ def Burkert_potential(r, r_s, M200, rho_crit=9.74E-30):
     rho_o = 3.0*M200/(4.0*np.pi*r_s**3) / (1.5*(np.log(1+R) + 0.5*np.log(1+R**2)-\
                                np.arctan(R)))
 
-    
+    #print 'burkert rho_o', rho_o
+   
     c_b = 4.0 * np.pi * cgs.G * r_s**2 * rho_o
     r = r / r_s
 
@@ -163,11 +164,17 @@ def burkert_DM(r, r_s, M200, rho_crit=9.74E-30, decay=False, r_decay=None):
     R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
     R = R200/r_s
 
-    rho_o = 3.0*M200/(4.0*np.pi*r_s**3) / (1.5*(np.log(1+R) + 0.5* np.log(1+R**2)-\
-                               np.arctan(R)))
+ #   rho_o = 3.0*M200/(4.0*np.pi*r_s**3) / (1.5*(np.log(1+R) + 0.5* np.log(1+R**2)-\
+ #                              np.arctan(R))
+    
+    rho_o = 3.0*M200 / (4.0 * np.pi * r_s**3) / (1.5*(0.5*np.log(1+R*R) + np.log(1+R) - \
+                                                          np.arctan(R)))
 
     density = rho_o/((1+r/r_s)*(1+(r/r_s)**2))
 
+    print '[Burkert DM]', rho_o, M200, R200
+
+    
     if decay:
         if r_decay == None:
             density[r > R200] = decay_function(r[r>R200],r_decay,R200,r_s,'Burkert')
@@ -214,11 +221,13 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     # central dark matter denisty
     R = R200/r_s
 
-    rho_DM = 3.0* M200/(4.0*np.pi*r_s**3) /(1.5* (np.log(1+R) + 0.5* np.log(1+R**2)-\
+    rho_DM = 3.0* M200/(4.0*np.pi*r_s**3) /(1.5 * (np.log(1+R) + 0.5* np.log(1+R**2)-\
                                 np.arctan(R)))
     rho_o = n_o * cgs.mp * mu
+    M200 = 4.0*np.pi/3.0  * (200.0*rho_crit) * R200**3
 
-    # constant in exponential from gas properties
+    print '[Bukert isothermal gas]', rho_DM, rho_o, M200, R200
+    # constant f_M(in exponential from gas properties
     C_gas = mu * cgs.mp / (cgs.kb * T)  
     # constant in exp from DM profile
     D_B = 4.0*np.pi*cgs.G*rho_DM*r_s**2
@@ -233,19 +242,21 @@ def Burkert_isothermal_gas(r, r_s, M200, T, n_o, mu=1.31,
     # R is the unitless radisu
     R = r / r_s
 
+    rho_s = rho_o / (np.exp(-C_gas * Burkert_potential(0.0, r_s, M200)))
     
     zero = 1.0E-13
     rho = np.zeros(np.size(R))
-    rho[R <= tolerance] = 1.0 
+    rho[R <= zero] = rho_o
 
-    R = R[R > tolerance]
+    R = R[R > zero]
 
-   #rho[R > tolerance] = np.exp(-C_gas * D_B *\
-   #      (0.25*np.log(1.0+R**2) + 0.5*np.arctan(R[R>0]) - 0.25*np.log(1.+R[R>0]**2)/R[R>0] -\
-   #       0.50*np.log(1.0+R)/R  -0.5*np.log(1.0+R[R>0]) + 0.5))
+    #rho[R > tolerance] = np.exp(-C_gas * D_B *\
+    #      (0.25*np.log(1.0+R**2) + 0.5*np.arctan(R[R>0]) - 0.25*np.log(1.+R[R>0]**2)/R[R>0] -\
+    #       0.50*np.log(1.0+R)/R  -0.5*np.log(1.0+R[R>0]) + 0.5))
 
+    rho[ R > zero ] = rho_s * np.exp(-C_gas * Burkert_potential( r[R > zero], r_s, M200))
 
-    rho = rho_o * rho
+    
    
     if scalar_input:
         return np.squeeze(rho)
@@ -380,6 +391,9 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
     M200 = 4.0*np.pi/3.0  * (200.0*rho_crit) * R200**3
     R = R200/r_s
 
+    print '[solve Burkert]', rho_DM, M200, R200
+
+    
     # we now have M200 and r_s, which defines the DM profile
     # now, find n_o / rho_o to define the gas density profile
 
@@ -392,9 +406,10 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
         x = r / r_s
  
         if (r>0):
-            val = np.exp(-C_g * D_B *\
-              (0.25*np.log(1.0+x**2) + 0.5*np.arctan(x) - 0.25*np.log(1.+x**2)/x -\
-              0.50*np.log(1.0+x)/x  -0.5*np.log(1.0+x) + 0.5))
+            #val = np.exp(-C_g * D_B *\
+              #(0.25*np.log(1.0+x**2) + 0.5*np.arctan(x) - 0.25*np.log(1.+x**2)/x -\
+              #0.50*np.log(1.0+x)/x  -0.5*np.log(1.0+x) + 0.5))
+            val = np.exp(-C_g * Burkert_potential(r, r_s, M200))
 
         else:
             val = 1.0
@@ -403,8 +418,13 @@ def solve_burkert(M_DM, r_DM, r_s, M_HI, r_HI, T_dwarf,
 
         return val
 
-    # numerically integrate density profile for mass to get rho_o
-    rho_o = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
+    # numerically integrate density profile for mass to get the constant
+    # A = 
+    A = M_HI / integrate.quad(__integrand, 0.0, r_HI)[0]
+    rho_o = A * np.exp( - C_g * Burkert_potential(0.0, r_s, M200))
+    
+    print ' ===== [solve burkert]', rho_o / np.exp(- C_g * Burkert_potential(0.0, r_s, M200)), rho_o / np.exp(0.25 * np.pi * C_g * D_B)
+    
     n_o = rho_o / (mu_dwarf * cgs.mp)
 
     density = lambda r: Burkert_isothermal_gas(r, r_s, M200, T_dwarf,
