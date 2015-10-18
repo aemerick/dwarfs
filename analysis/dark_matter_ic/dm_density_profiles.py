@@ -59,15 +59,22 @@ class general_dm_profile:
                 print 'Profile shape must have 3 parameters (alpha, beta, gamma)'
 
         if (not r_s      == None):
-            self.r_s      = r_s      ; self.small_r = 1.0E-6 * self.r_s ; self.calculate_epsilon()
+            self.r_s      = r_s      
+            self.small_r = 1.0E-6 * self.r_s
+            self.large_r = 100.0  * self.r_s;
+            self.calculate_epsilon()
 
         if (not r_vir    == None): 
-            self.r_vir = r_vir ; self.large_r = 10.0 * self.r_vir; self.calculate_epsilon()
+            self.r_vir = r_vir ; self.calculate_epsilon()
 
         if (not r_decay  == None): self.r_decay  = r_decay  ; self.calculate_epsilon()
         if (not rho_s    == None): self.rho_s    = rho_s
         if (not M_vir    == None): self.M_vir    = M_vir
         if (not rho_crit == None): self.rho_crit = rho_crit
+            
+        if ((not r_vir == None or not r_decay == None) and (not self.r_vir == None and not self.r_decay == None)):
+            self.large_r = self.r_vir + 3.0 * self.r_decay
+            
             
         
         if self._check_params():
