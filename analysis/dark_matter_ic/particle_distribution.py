@@ -287,9 +287,7 @@ class particle_distribution:
         results = [OUTPUT.get() for p in jobs]
         
         results = np.array(results)
-        print np.shape(results)
         
-        print self.N_part
         pos = results[:,0]
         pos = pos.reshape(self.N_part,3)
         self.pos = pos
@@ -352,21 +350,24 @@ class particle_distribution:
             mass_func = self.DF.dprof.cumulative_mass
         
         
+        umin = mass_func(1.00001*self.DF.dprof.small_r) / self.DF.dprof.M_sys
+        umax = mass_func(0.99999*self.DF.dprof.large_r) / self.DF.dprof.M_sys
+        
         failed = True
         # root finder may fail occasionally if r is too close to zero
         # keep drawing random number until it works.
         # alternate soln would be to draw from M(small_r)/M_tot to
         # M(large_r) / M_tot instead of 0 to 1... 
-        while failed:
-            u = np.random.rand()
+        #while failed:
+        u = np.random.rand()*(umax - umin) + umin
             
-            try:
-                r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
+        #    try:
+        r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
                                     args=(mass_func ,u,self.DF.dprof.M_sys,))
-                failed = False
+        #        failed = False
                 
-            except: 
-                failed = True
+        #    except: 
+        #        failed = True
 
         
         
@@ -406,7 +407,7 @@ class particle_distribution:
     def _tabulate_cumulative_mass(self):
         
         rmax  = self.DF.dprof.large_r
-        rmin  = self.DF.dprof.small_r
+        rmin  = self.DF.dprof.small_r*1.000001
 
         
         r   = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
@@ -418,14 +419,14 @@ class particle_distribution:
         # save logged values 
         self._cumulative_mass_r     = np.log10(r)
         self._cumulative_mass_m     = np.log10(cumulative_mass)
-        
+                
         _my_print("Completed mass tabulation")
         return
         
     def _tabulate_relative_potential(self):
         
         rmax  = self.DF.dprof.large_r    
-        rmin  = self.DF.dprof.small_r
+        rmin  = self.DF.dprof.small_r*1.000001
 
                 
         r     = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
