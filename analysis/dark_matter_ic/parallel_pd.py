@@ -23,7 +23,7 @@ f = NFW_DF.load_df(df_filename)
 
 
 Ncore = 4
-Npart = 1.0E5
+Npart = 1.0E4
 
 start = time.time()
 NFW_PD = pd.particle_distribution(NFW_DF,Npart, optimize=True)
@@ -46,4 +46,4 @@ print end - start
 
 
 
-plt.savefig('relative_potential.png')
+#plt.savefig('relative_potential.png')
