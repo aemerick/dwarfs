@@ -58,7 +58,8 @@ class general_dm_profile:
             else:
                 print 'Profile shape must have 3 parameters (alpha, beta, gamma)'
 
-        if (not r_s      == None): self.r_s      = r_s      ; self.calculate_epsilon()
+        if (not r_s      == None):
+            self.r_s      = r_s      ; self.small_r = 1.0E-6 * self.r_s ; self.calculate_epsilon()
 
         if (not r_vir    == None): 
             self.r_vir = r_vir ; self.large_r = 10.0 * self.r_vir; self.calculate_epsilon()
@@ -284,7 +285,7 @@ class general_dm_profile:
         mass = np.zeros(np.shape(r))
         integrand = lambda x : x * x * self.density(x)
 
-        prev_mass = 0.0; rlow = 0.0
+        prev_mass = 0.0; rlow = self.small_r
         for i in np.arange(np.size(r)):
             mass[i] = integrate.quad(integrand, rlow, r[i])[0] + prev_mass
             prev_mass = 1.*mass[i] ; rlow = 1.*r[i]
