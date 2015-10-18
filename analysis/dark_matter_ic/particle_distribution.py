@@ -1,3 +1,14 @@
+"""
+particle_distribution
+
+                description: Particle distribution class. Generates a distribution of dark matter
+                             particles following a provided distribution function generated from a desired
+                             density profile. Following BT and Kazantizidis et. al. 2005
+                created:                 10.14.15
+                author:                 Andrew J. Emerick, Columbia University ; AMNH
+                contact:                 emerick@astro.columbia.edu
+"""
+
 from __future__ import division
 
 import numpy as np
@@ -11,7 +22,7 @@ import multiprocessing
 from multiprocessing import Pool
 import os
 
-output = multiprocessing.Queue()
+OUTPUT = multiprocessing.Queue()
 
 def _while_loop(pd, nmax, max_loop):
     """
@@ -77,7 +88,7 @@ def _while_loop(pd, nmax, max_loop):
 
             loop_counter = loop_counter + 1
     
-    output.put([pos,vel])
+    OUTPUT.put([pos,vel])
     return pos, vel
                 
 
@@ -273,7 +284,7 @@ class particle_distribution:
         for p in jobs:
             p.join()
            
-        results = [output.get() for p in jobs]
+        results = [OUTPUT.get() for p in jobs]
         
         results = np.array(results)
         print np.shape(results)
