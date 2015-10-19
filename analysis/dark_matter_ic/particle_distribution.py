@@ -248,7 +248,7 @@ class particle_distribution:
                 n_particles = n_particles + 1
                 
                             
-            if (loop_counter % 50) == 0:
+            if (loop_counter % 500) == 0:
                 _my_print("Have %4i particles. On loop %6i"%(n_particles, loop_counter))
             loop_counter = loop_counter + 1
                 
@@ -359,13 +359,22 @@ class particle_distribution:
         # alternate soln would be to draw from M(small_r)/M_tot to
         # M(large_r) / M_tot instead of 0 to 1... 
         #while failed:
-        u = np.random.rand()*(umax - umin) + umin
-            
-        #    try:
-        r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
+        i = 0
+        while (failed and i < 100):
+        
+            try:
+                u = np.random.rand()*(umax - umin) + umin
+
+                r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
                                     args=(mass_func ,u,self.DF.dprof.M_sys,))
-        #        failed = False
+                failed = False
+            
+            except:
+                failed = True
+                _my_print('Failing in root finder %004i'%(i))
                 
+                
+            i = i + 1
         #    except: 
         #        failed = True
 
