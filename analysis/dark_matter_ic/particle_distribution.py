@@ -50,7 +50,7 @@ def _while_loop(pd, nmax, max_loop):
    
         v = pd._choose_velocity(r, Psi)
      
-        E = Psi + 0.5 * v * v
+        E = Psi - 0.5 * v * v
         
         f_E = pd.DF.interpolate_f(E)
             
@@ -188,9 +188,8 @@ class particle_distribution:
         self.vel   = np.zeros((self.N_part, 3))
          
         
-
-        F_max = np.max(self.DF.f)
-        
+        F_max = np.max(self.DF.f) ; F_min = np.min(self.DF.f)
+        print F_max, self.DF.E[np.argmax(self.DF.f)], np.min(self.DF.E), np.max(self.DF.E), np.min(self.DF.f)
 
         n_particles = 0
         loop_counter = 0
@@ -211,13 +210,16 @@ class particle_distribution:
             Psi   = relative_potential(r)    
             v     = self._choose_velocity(r, Psi)
         
-            E     = Psi + 0.5 * v * v
+            E     = Psi - 0.5 * v * v
         
             # interpolate along DF to find f(E) of chosen particle
             f_E = self.DF.interpolate_f(E)
             
             # random number from 0 to F_max for accept reject
-            F = np.random.rand() * F_max
+            #F = np.random.rand() * F_max
+            
+            F = 10.0**( np.random.rand()*(np.log10(F_min) - np.log10(F_max)) + np.log10(F_min) )
+            
             
             if F <= f_E: # accept particle
 
@@ -248,7 +250,7 @@ class particle_distribution:
                 n_particles = n_particles + 1
                 
                             
-            if (loop_counter % 500) == 0:
+            if (loop_counter % 5000) == 0:
                 _my_print("Have %4i particles. On loop %6i"%(n_particles, loop_counter))
             loop_counter = loop_counter + 1
                 
@@ -326,8 +328,13 @@ class particle_distribution:
         u = np.random.rand()
         
         v_max = np.sqrt(2.0 * Psi)
-        
         return u * v_max
+    
+    def _choose_position_2(self):
+        
+        u = np.random.rand()
+        
+        return u*(self.DF.dprof.large_r - self.small_r) + self.small_r
     
     def _choose_position(self):
         """
@@ -350,8 +357,9 @@ class particle_distribution:
             mass_func = self.DF.dprof.cumulative_mass
         
         
-        umin = mass_func(1.00001*self.DF.dprof.small_r) / self.DF.dprof.M_sys
+        umin = mass_func(1.00001*self.small_r) / self.DF.dprof.M_sys
         umax = mass_func(0.99999*self.DF.dprof.large_r) / self.DF.dprof.M_sys
+                
         
         failed = True
         # root finder may fail occasionally if r is too close to zero
@@ -483,17 +491,44 @@ class particle_distribution:
 
         return r
 
+    def vr(self):
+        
+        vr = np.sqrt(self.vel[:,0]**2 + self.vel[:,1]**2 + self.vel[:,2]**2)
+        
+        return vr
+    
+    def vr_hist(self, nbins = None, vr_bins = None):
 
-    def density_profile(self, nbins):
+        vr = self.vr()
+        
+        if vr_bins == None and not nbins == None:
+            vr_bins = np.linspace(0.0, np.max(vr), nbins + 1)
+        elif nbins == None and vr_bins == None:
+            nbins = 100
+            vr_bins = np.linspace(0.0, np.max(vr), nbins + 1)
+            
+        vr_hist, vr_bins = np.histogram(vr, bins = vr_bins)
+        vr_cent = 0.5*(vr_bins[1:] + vr_bins[:-1])
+
+        return vr_cent, vr_hist
+    
+    def density_profile(self, nbins = None, r_bins = None):
         """
         Using a binning procedure, computes the density profile from the particle r)
         positions and velocities
         """
 
+        
 
         r = self.r()
 
-        r_bins = np.linspace(0.0, np.max(r), nbins + 1)
+        if r_bins == None and not nbins == None:
+            r_bins = np.linspace(0.0, np.max(r), nbins + 1)
+        elif nbins == None and r_bins == None:
+            nbins = 100
+            r_bins = np.linspace(0.0, np.max(r), nbins + 1)
+            
+            
 
         # now bin with np hist
         r_hist, r_bins = np.histogram(r, bins = r_bins)
@@ -509,7 +544,7 @@ class particle_distribution:
 
         return r_cent, density
 
-    def potential_from_particles(self, nbins):
+    def potential_from_particles(self, nbins = None, r_bins = None):
         """
         Uses the binned density profile from the particles to calculate 
         (approximately) what the total gravitational potential should be.
@@ -517,8 +552,8 @@ class particle_distribution:
         N-body calculation. With enough particles, they should be the same.
         """
 
-        r, dens = self.density_profile(nbins)
-
+        r, dens = self.density_profile(nbins, r_bins)
+        nbins = np.size(r)
         dens_function = interpolate.UnivariateSpline(r, dens)
 
 
