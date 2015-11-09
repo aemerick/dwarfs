@@ -24,11 +24,32 @@ import os
 
 OUTPUT = multiprocessing.Queue()
 
-def _while_loop(pd, nmax, max_loop):
+def _while_loop(pd, nmax, max_loop, ncore, outfile):
     """
     Due to the way the parallel multiprocessing works, this must be defined at the top level
     ... there may be a better way to do this....
     """
+    
+    # make sure the random seed is different for every processor
+    random_number_seeds =  [3456789, 7654321, 2435467, 8273645,
+                            1085712, 4154712, 1248291, 8415917,
+                            2345161, 5710916, 5718601, 7516234,
+                            9235161, 4917519, 1111245, 8167834] 
+    
+    # get the processor ID (1 - Ncore) and convert to single integer
+    current = multiprocessing.current_process()
+    pid     = current._identity
+    pid     = pid[0]
+     
+    #
+    # choose a different seed for each processor from the list so each processor has
+    # a different randum number seed. Then, fiddle with each seed a little so 
+    # the seeds aren't the same every time the code is run
+    seed = random_number_seeds[pid] * np.int(np.random.rand()*(2.0 - 0.01) + 0.01)
+    
+    np.random.seed(seed)
+    
+    #print 'id and seed', pid, seed
     
     n_particles = 0
     loop_counter = 0
@@ -81,14 +102,24 @@ def _while_loop(pd, nmax, max_loop):
                 
              
             n_particles = n_particles + 1
-                
-        else:
-              
-            continue
-
-            loop_counter = loop_counter + 1
+                              
+        if (loop_counter % 2500) == 0:
+            _my_print("Have %4i particles. On loop %6i"%(n_particles, loop_counter))
+        loop_counter = loop_counter + 1
     
-    OUTPUT.put([pos,vel])
+    # now write out to a temporary file
+    f = open(outfile + "_%02i_"%(pid) + ".temp", 'w')
+    fmt    = "%12.12E %12.12E %12.12E %12.12E %12.12E %12.12E %12.12E\n"
+        
+ 
+    for i in np.arange(nmax):
+        f.write(fmt%(pd.M_part, pos[i,0], pos[i,1], pos[i,2], 
+                                  vel[i,0], vel[i,1], vel[i,2]))
+        
+        
+    f.close()   
+    
+    #OUTPUT.put([pos,vel])
     return pos, vel
                 
 
@@ -189,7 +220,7 @@ class particle_distribution:
          
         
         F_max = np.max(self.DF.f) ; F_min = np.min(self.DF.f)
-        print F_max, self.DF.E[np.argmax(self.DF.f)], np.min(self.DF.E), np.max(self.DF.E), np.min(self.DF.f)
+        #print F_max, self.DF.E[np.argmax(self.DF.f)], np.min(self.DF.E), np.max(self.DF.E), np.min(self.DF.f)
 
         n_particles = 0
         loop_counter = 0
@@ -280,29 +311,45 @@ class particle_distribution:
         #p = Process(target=_while_loop, args=(nmax, max_loop,))
         jobs = []
         for i in np.arange(Ncore):
-            p = multiprocessing.Process(target=_while_loop, args=(self, nmax, max_loop,))
+            p = multiprocessing.Process(target=_while_loop, args=(self, nmax, max_loop, 
+                                                                        Ncore, outfile,))
             jobs.append(p)
             p.start()
         
         for p in jobs:
             p.join()
-           
-        results = [OUTPUT.get() for p in jobs]
         
-        results = np.array(results)
+        #results = [None]*self.N_part
+        #results = [OUTPUT.get() for p in jobs]
         
-        pos = results[:,0]
-        pos = pos.reshape(self.N_part,3)
-        self.pos = pos
+        #results = np.array(results)
         
-        vel = results[:,1]
-        vel = vel.reshape(self.N_part,3)
-        self.vel = vel
+        #pos = results[:,0]
+        #pos = pos.reshape(self.N_part,3)
+        #self.pos = pos
+        
+        #vel = results[:,1]
+        #vel = vel.reshape(self.N_part,3)
+        #self.vel = vel
         
         
-        if (not outfile == None):
-            self.write_pd(outfile)
-                
+        #if (not outfile == None):
+        #    self.write_pd(outfile)
+        # combine to a single output
+        bash_command = "cat "
+        for i in np.arange(Ncore) + 1:
+            temp_name = outfile + "_%02i_"%(i) + ".temp"
+            bash_command = bash_command + temp_name + " "
+        bash_command = bash_command + "> " + outfile
+        os.system(bash_command)
+        
+        # now remove temporary files
+        bash_command = "rm "
+        for i in np.arange(Ncore) + 1:
+            temp_name = outfile + "_%02i_"%(i) + ".temp"
+            bash_command = bash_command + temp_name + " "
+        os.system(bash_command)
+        
         return self.pos, self.vel
     
     
@@ -380,7 +427,7 @@ class particle_distribution:
             
             except:
                 failed = True
-                _my_print('Failing in root finder %004i'%(i))
+                _my_print('Root finder for position failing for the %004i time. Re-rolling.'%(i))
                 
                 
             i = i + 1
