@@ -60,8 +60,8 @@ class general_dm_profile:
 
         if (not r_s      == None):
             self.r_s      = r_s      
-            self.small_r = 1.0E-6 * self.r_s
-            self.large_r = 100.0  * self.r_s;
+            self.small_r  = 1.0E-6 * self.r_s
+            self.large_r  = 100.0  * self.r_s;
             self.calculate_epsilon()
 
         if (not r_vir    == None): 
@@ -320,7 +320,7 @@ class general_dm_profile:
         self._set_values_check()
         alpha, beta, gamma = self.profile_shape_params
 
-        tolerance = 1.0E-16
+        tolerance = self.small_r
         
         r = np.asarray(r)
         scalar_input = False
@@ -335,7 +335,7 @@ class general_dm_profile:
 
 
         # integral at zero can just be written as the below
-        pot[r <= tolerance] = -4.0*np.pi*cgs.G * integrate.quad(integrand, 0.0, self.large_r)[0]
+        pot[r <= tolerance] = -4.0*np.pi*cgs.G * integrate.quad(integrand, self.small_r, self.large_r)[0]
 
         # this is first
         A = (self.cumulative_mass(r[r > tolerance]) / (4.0 * np.pi)) / r[r > tolerance]
