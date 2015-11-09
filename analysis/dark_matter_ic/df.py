@@ -54,7 +54,7 @@ class DF:
             self.f = data['f']
             
             npoints = np.size(self.f)
-            print "%4i DF points successfuly loaded from "%(npoints) + filename
+            _my_print("%4i DF points successfuly loaded from "%(npoints) + filename)
             
         except:
             print "Error in loading from file. Check header names. Should be E and f"
@@ -104,7 +104,7 @@ class DF:
 
             r_val = self._r_root_finder(x)
 
-            if (E_val - x) <= 1.0E-15:
+            if (E_val - x) <= 1.1E-16:
                 integrand_value =  2.0 * np.sqrt(E_val) * self._d2rho_dPsi2(r_val)
 
             else:
@@ -225,17 +225,21 @@ class DF:
         log_E = np.log10(self.E)
         log_f = np.log10(self.f)
      
-        
-        try:
+        if E < np.min(self.E):
+        #try:
+            f = 0.0
+        else:
             spline = interpolate.interp1d(log_E,log_f, *args, **kwargs)
             f = spline(np.log10(E))
-
-        except:
-            spline = interpolate.UnivariateSpline(log_E, log_f, *args, **kwargs)
-            f = spline(np.log10(E))
+            f = 10.0**(f)
 
         
-        f = 10.0**(f)
+        #except:
+        #    spline = interpolate.UnivariateSpline(log_E, log_f, *args, **kwargs)
+        #    f = spline(np.log10(E))
+        #    _my_print("Switching to Univariate Spline in interpolation")
+
+        
     
         return f
         
@@ -298,5 +302,8 @@ def hernquist_df(E, M, a):
 
     return F
 
-
+def _my_print(string):
+    
+    print "[DF] : ", string
+    return
 
