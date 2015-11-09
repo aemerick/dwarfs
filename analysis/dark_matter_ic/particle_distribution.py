@@ -32,7 +32,7 @@ def _while_loop(pd, nmax, max_loop):
     
     n_particles = 0
     loop_counter = 0
-    F_max = np.max(pd.DF.f)
+    F_max = np.max(pd.DF.f) ; F_min = np.min(pd.DF.f)
 
     if pd.optimize:
         relative_potential = pd._interpolate_relative_potential
@@ -54,7 +54,7 @@ def _while_loop(pd, nmax, max_loop):
         
         f_E = pd.DF.interpolate_f(E)
             
-        F = np.random.rand() * F_max
+        F = 10.0**( np.random.rand()*(np.log10(F_max) - np.log10(F_min)) + np.log10(F_min) )
             
         if F <= f_E: # accept particle
             index = n_particles 
@@ -218,7 +218,8 @@ class particle_distribution:
             # random number from 0 to F_max for accept reject
             #F = np.random.rand() * F_max
             
-            F = 10.0**( np.random.rand()*(np.log10(F_min) - np.log10(F_max)) + np.log10(F_min) )
+            # HOLY CRAP....Fmax - Fmin ... not Fmin - Fmax
+            F = 10.0**( np.random.rand()*(np.log10(F_max) - np.log10(F_min)) + np.log10(F_min) )
             
             
             if F <= f_E: # accept particle
@@ -554,7 +555,7 @@ class particle_distribution:
 
         r, dens = self.density_profile(nbins, r_bins)
         nbins = np.size(r)
-        dens_function = interpolate.UnivariateSpline(r, dens)
+        dens_function = interpolate.interp1d(r, dens)
 
 
         integrand_1 = lambda x : x * x * dens_function(x)
@@ -574,6 +575,18 @@ class particle_distribution:
         pot = - 4.0 * np.pi * cgs.G * pot
 
         return r, pot
+    
+    #def exact_potential_from_particles(self, r):
+    #    
+    #    pot = np.zeros(np.shape(r))
+    #    
+    #    for i in np.arange(np.size(r)):
+    #        
+    #        rhat   = np.sqrt(self.pos[:,0]**2 + self.pos[:,1]**2 + self.pos[:,2]**2)
+    #
+    #        
+    #        pot[i] = 1.0 / rhat
+            
     
 def _my_print(string):   
     print "[Particle Distribution]: ", string
