@@ -37,6 +37,8 @@ class DF:
         
         self.dprof = dprof
         
+        
+        
     def load_df(self, filename):
         """
         Loads f(E) from a file. File assumed to have header names of "E" and "f"
@@ -95,8 +97,13 @@ class DF:
         if E == None:
             E_max = self.relative_potential(self.dprof.small_r)
             E_min = self.relative_potential(LR_FACTOR*self.dprof.large_r)
+            #E_min = 0.0
+            
+            E = np.zeros( n_points + np.int(0.1*n_points))
+            E[:n_points] = np.logspace( np.log10(E_min), np.log10(E_max*0.9), n_points)
 
-            E = np.logspace( np.log10(E_min), np.log10(E_max), n_points)
+            E[n_points:] = np.logspace( np.log10(E_max*0.9), np.log10(E_max), np.int(n_points*0.1))
+
         #   E = np.linspace(E_min, E_max, n_points)
            
         # integrand in the DF integral
@@ -104,7 +111,7 @@ class DF:
 
             r_val = self._r_root_finder(x)
 
-            if (E_val - x) <= 1.1E-16:
+            if np.abs((E_val - x)) <= 1.1E-14:
                 integrand_value =  2.0 * np.sqrt(E_val) * self._d2rho_dPsi2(r_val)
 
             else:
@@ -112,7 +119,17 @@ class DF:
 
             return integrand_value
 
+        def _recast_integrand(u, E_val):
+            
+            x = E_val * np.sin(u)**2.0
+            r_val = self._r_root_finder(x)
+            
+            integrand_value = 2.0 * np.sqrt(E_val) * np.sin(u) * self._d2rho_dPsi2(r_val)
 
+            return integrand_value
+        
+        
+        
         E = np.asarray(E)
         scalar_input = False
         if E.ndim == 0:
@@ -124,8 +141,10 @@ class DF:
         
 
         # be careful about the choice of the lower bound of the integral
-        lower_bound = self.relative_potential(LR_FACTOR*self.dprof.large_r)
-
+        #lower_bound = self.relative_potential(LR_FACTOR*self.dprof.large_r)
+        lower_bound = 0.0
+        #lower_bound = self.relative_potential(LR_FACTOR*self.dprof.large_r)
+        
         # change this to go from eval to eval
         normalization = 1.0/self.dprof.M_sys
         normalization =  normalization / (np.sqrt(8.0) * np.pi*np.pi)
@@ -142,8 +161,12 @@ class DF:
         for E_value in self.E:
             if verbose:
                 print "%03i Computing value for E = %.3E"%(i,E_value),
-            self.f[i] = integrate.quad(_integrand, lower_bound, E_value, args=(E_value,))[0] #+ f_prev
-
+            #self.f[i] = integrate.quad(_integrand, lower_bound, E_value, args=(E_value,))[0] #+ f_prev
+            
+            lower_bound = np.arcsin(np.sqrt(E_min / E_value))
+            #lower_bound = 0.0
+            
+            self.f[i] = integrate.quad(_recast_integrand, lower_bound, np.pi/2.0, args=(E_value,))[0]# + f_prev
 
             self.f[i] = self.f[i] + 1.0/np.sqrt(E_value) * (self.dprof.first_derivative(LR_FACTOR*self.dprof.large_r))*(1.0/(self._dPsi_dr(LR_FACTOR*self.dprof.large_r)))
 
@@ -204,11 +227,13 @@ class DF:
 
         i = 0
         for p in psi_value:
-            try:
-                r[i] = optimize.brentq(_eq_to_solve, 0.0, self.dprof.large_r, args=(p,))
-            except:
-                print "Failing in brentq"
-                print psi_value, p
+            #try:
+            # was 0 to large_r
+            r[i] = optimize.brentq(_eq_to_solve, self.dprof.small_r*0.99999, self.dprof.large_r*1.00001, args=(p,))
+            #except:
+            #print "Failing in brentq"
+            #print psi_value, p, self.relative_potential(1.0E100*self.dprof.large_r), self.relative_potential(0.0)
+            #r[i] = 1.0E100*self.dprof.large_r
             i = i + 1
 
         if scalar_input:
