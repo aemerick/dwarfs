@@ -13,7 +13,8 @@ from __future__ import division
 import numpy as np
 
 from scipy.misc import derivative
-from scipy import integrate
+from scipy      import integrate
+from scipy      import optimize
 import cgs as cgs
 
 
@@ -61,11 +62,12 @@ class general_dm_profile:
         if (not r_s      == None):
             self.r_s      = r_s      
             self.small_r  = 1.0E-6 * self.r_s
-            self.large_r  = 100.0  * self.r_s;
             self.calculate_epsilon()
 
         if (not r_vir    == None): 
             self.r_vir = r_vir ; self.calculate_epsilon()
+            self.large_r  = 1.0E6  * self.r_vir
+
 
         if (not r_decay  == None): self.r_decay  = r_decay  ; self.calculate_epsilon()
         if (not rho_s    == None): self.rho_s    = rho_s
@@ -79,6 +81,16 @@ class general_dm_profile:
         
         if self._check_params():
             self._calculate_system_mass()
+
+            if self.profile_shape_params[1] > 3:
+                # set large_r to be the r with 99.5% of the system mass
+                root_find = lambda x : (self.cumulative_mass(x) / self.M_sys) - 0.9995
+
+                # brent q root finder here
+                r = optimize.brentq(root_find, self.r_vir, 2.0E3*self.r_vir)
+                
+                self.large_r = r
+                print "m_sys large r", self.large_r, self.M_sys
             
     def _check_params(self):
         """
@@ -108,8 +120,10 @@ class general_dm_profile:
         than M_vir (more for systems requireing the exponential density cutoff)
         """
         
-        
-        self.M_sys = self.cumulative_mass(self.large_r)
+        if self.profile_shape_params[1] <= 3:
+            self.M_sys = self.cumulative_mass(self.large_r)
+        else:
+            self.M_sys = self.cumulative_mass(1.5E3*self.r_vir)
         
         return
         
@@ -151,7 +165,6 @@ class general_dm_profile:
                 self.epsilon = None
                 
              
-
     def _set_values_check(self):
         if ((self.rho_s == None) and (not self.M_vir == None and not self.r_vir == None)):
             self.calculate_rho_s()
@@ -193,6 +206,10 @@ class general_dm_profile:
                                                         np.exp(-(r[r>self.r_vir]-self.r_vir)/self.r_decay)
        
 
+    
+        # large r threshold ---- does this work?
+        rho[r > self.large_r] = 0.0
+        
         if scalar_input:
             return np.squeeze(rho)
         else:
@@ -227,7 +244,8 @@ class general_dm_profile:
             first_deriv[ r > self.r_vir ] = self.density(r[r>self.r_vir]) *\
                                       ((self.epsilon/r[r>self.r_vir]) - 1.0 / self.r_decay)
         
-
+        # large r threshold ---- does this work?
+        first_deriv[r > self.large_r] = 0.0
 
 
         if scalar_input:
@@ -269,7 +287,8 @@ class general_dm_profile:
                                          (self.epsilon / r[r>self.r_vir] - 1.0/self.r_decay) -\
                                          self.density(r[r>self.r_vir])*self.epsilon / (r[r>self.r_vir])**2
 
-
+        # large r threshold ---- does this work?
+        second_deriv[r > self.large_r] = 0.0
 
         if scalar_input:
             return np.squeeze(second_deriv)
@@ -294,7 +313,7 @@ class general_dm_profile:
 
         prev_mass = 0.0; rlow = self.small_r
         for i in np.arange(np.size(r)):
-            mass[i] = integrate.quad(integrand, rlow, r[i])[0] + prev_mass
+            mass[i] = integrate.quad(integrand, rlow, r[i], limit = 1000, epsabs = 1.0E-12, epsrel = 1.0E-12 )[0] + prev_mass
             prev_mass = 1.*mass[i] ; rlow = 1.*r[i]
 
         mass = mass * 4.0 * np.pi
@@ -338,8 +357,8 @@ class general_dm_profile:
         pot[r <= tolerance] = -4.0*np.pi*cgs.G * integrate.quad(integrand, self.small_r, self.large_r)[0]
 
         # this is first
-        A = (self.cumulative_mass(r[r > tolerance]) / (4.0 * np.pi)) / r[r > tolerance]
- 
+        A = (self.cumulative_mass(r[(r > tolerance)*(r <= self.large_r)])) / r[(r > tolerance)*(r <= self.large_r)]
+        A = A / (4.0 * np.pi)
 
         # compute B:
         # this integral behaves very badly if the upper bound is too large... not sure
@@ -347,14 +366,17 @@ class general_dm_profile:
         # esp as the density distribution eventually truncates... error becomes small after enough
         # virial radii
 
-        B = np.zeros(np.shape(r[r > tolerance]))
+        B = np.zeros(np.shape(r[(r > tolerance)*(r <= self.large_r)]))
         i = 0
-        for rval in r[r > tolerance]:
+        for rval in r[(r > tolerance)*(r <= self.large_r)]:
             B[i] = integrate.quad(integrand, rval, self.large_r)[0]
             i = i + 1
 
-        pot[ r > tolerance ] = -4.0 * np.pi * cgs.G * (A + B)
+        pot[(r > tolerance)*(r <= self.large_r)] = -4.0 * np.pi * cgs.G * (A + B)
 
+        # outside large_r, just potential due to a sphere of mass M
+        pot[r > self.large_r] = - cgs.G * self.M_sys / r[r > self.large_r]
+        
         if scalar_input:
             return np.squeeze(pot)
         else:
