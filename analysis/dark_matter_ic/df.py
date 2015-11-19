@@ -15,7 +15,7 @@ import numpy as np
 
 # for numerical derivation and integration
 from scipy      import integrate    # for quad integration
-from scipy      import optimize     # for root finder
+from scipy      import optimize as opt     # for root finder
 from scipy      import interpolate
 
 # constants in cgs units and unit conversions
@@ -25,7 +25,7 @@ LR_FACTOR = 1.0
 
 class DF:
 
-    def __init__(self, dprof):
+    def __init__(self, dprof, optimize = False, optimize_npoints = 1.0E3):
         """
         Initialize the DF class by passing a dark matter density profile object
         
@@ -36,7 +36,12 @@ class DF:
         """
         
         self.dprof = dprof
+        self.optimize = optimize
+        self.dprof.set_optimization( self.optimize )
         
+        if self.optimize:
+            self._optimize_npoints = optimize_npoints
+            self._tabulate_relative_potential()
         
         
     def load_df(self, filename):
@@ -103,9 +108,8 @@ class DF:
             E[:n_points] = np.logspace( np.log10(E_min), np.log10(E_max*0.9), n_points)
 
             E[n_points:] = np.logspace( np.log10(E_max*0.9), np.log10(E_max), np.int(n_points*0.1))
-
+      #  print np.min(E), np.max(E), E[0]
         #   E = np.linspace(E_min, E_max, n_points)
-           
         # integrand in the DF integral
         def _integrand(x, E_val):
 
@@ -162,9 +166,20 @@ class DF:
             if verbose:
                 print "%03i Computing value for E = %.3E"%(i,E_value),
             #self.f[i] = integrate.quad(_integrand, lower_bound, E_value, args=(E_value,))[0] #+ f_prev
+            #
+            # if E_min / E_value ~ 1, b/c of machine precision it may be
+            # just a bit greater than 1 and np.arcisn will return nan...
+            # doing error catching to avoid this
+            #
+            E_ratio = E_min / E_value
+            if (E_ratio - 1.0) > 0 and (E_ratio - 1.0) <= 1.0E-10:
+                E_ratio = 1.0
+            elif (E_ratio > 1.0):
+                _my_print("Fatal Error in Energy range in DF calculation.")
+                return
             
-            lower_bound = np.arcsin(np.sqrt(E_min / E_value))
-            #lower_bound = 0.0
+            lower_bound = np.arcsin(np.sqrt(E_ratio))
+
             
             self.f[i] = integrate.quad(_recast_integrand, lower_bound, np.pi/2.0, args=(E_value,))[0]# + f_prev
 
@@ -174,6 +189,10 @@ class DF:
             
             if verbose:
                 print " - f = %0.3E"%(self.f[i])
+            elif (i % 500 ==0):
+                print "%03i E = %.3E"%(i,E_value),
+                print " - f = %0.3E"%(self.f[i])
+                
 
             if (not filename == None):
                 outfile.write("%.8E %.8E\n"%(self.E[i],self.f[i]))
@@ -212,8 +231,13 @@ class DF:
         """ 
         Solves the equation phi_value - dprof.phi(r) = 0.0 for r 
         """
+        if self.optimize:
+            relative_potential_function = self._interpolate_relative_potential
+        else:
+            relative_potential_function = self.relative_potential
+        
         def _eq_to_solve(x, pval):
-            return pval - self.relative_potential(x)
+            return pval - relative_potential_function(x)
 
 
         psi_value = np.asarray(psi_value)
@@ -229,7 +253,18 @@ class DF:
         for p in psi_value:
             #try:
             # was 0 to large_r
-            r[i] = optimize.brentq(_eq_to_solve, self.dprof.small_r*0.99999, self.dprof.large_r*1.00001, args=(p,))
+            # AE 11/17 right now this is failing to work for both hernquist and nfw... bounds are the issue here
+            # ........
+            a = 0.99999
+            b = 1.00001
+           # print '-----------'
+           # print p, self.relative_potential(self.dprof.small_r*a), self.relative_potential(self.dprof.large_r*b), self.relative_potential(self.dprof.large_r)
+           # print 'asdfasdfasdfasdf'
+           # print p, relative_potential_function(self.dprof.small_r*a), relative_potential_function(self.dprof.large_r*b), relative_potential_function(self.dprof.large_r)
+          #  print p - self.relative_potential(self.dprof.small_r*a)
+          #  print p - self.relative_potential(self.dprof.large_r*b)
+          #  print '-----'
+            r[i] = opt.brentq(_eq_to_solve, self.dprof.small_r*a, self.dprof.large_r*b, args=(p,))
             #except:
             #print "Failing in brentq"
             #print psi_value, p, self.relative_potential(1.0E100*self.dprof.large_r), self.relative_potential(0.0)
@@ -273,9 +308,50 @@ class DF:
         Relative potential (greek letter capital Psi) is defined here as -1.0 times the potential (greek
         eltter lower case phi). Psi written here always refers to relative potential.
         """
+        
+
 
         return -1.0 * self.dprof.potential(r)
 
+    def _tabulate_relative_potential(self):
+        
+        rmax  = self.dprof.large_r * 1.01 # some extra splop
+        rmin  = self.dprof.small_r * 0.999 
+        sub_sample = 0.2
+        
+        r = np.zeros( self._optimize_npoints + np.ceil(sub_sample*self._optimize_npoints))
+        
+        r[:self._optimize_npoints] = np.logspace(np.log10(rmin),
+                                                np.log10(rmax*0.98), self._optimize_npoints)
+        
+        r[self._optimize_npoints:] = np.logspace(np.log10(rmax*0.98),
+                                                 np.log10(rmax),
+                                               np.ceil(sub_sample*self._optimize_npoints))
+
+        # compute relative potential
+        relative_potential = self.relative_potential(r)
+
+        # save logged values        
+        self._relative_potential_r     = np.log10(r)
+        self._relative_potential_psi   = np.log10(relative_potential)
+        
+        _my_print("Completed potential tabulation")
+        return
+    
+    def _interpolate_relative_potential(self, r):
+        """
+        At runtime, tabulates cumulative mass function over log r and interpolates along it
+        """
+        
+        # interpolate
+        #spline = interpolate.UnivariateSpline(self._relative_potential_r,
+        #                                      self._relative_potential_psi, k = 1)
+        
+        # linear interpolation is more reliable assuming number of points
+        # is large enough
+        spline = interpolate.interp1d(self._relative_potential_r, self._relative_potential_psi)
+
+        return 10.0**spline(np.log10(r))    
 
 
     def _dPsi_dr(self, r):
