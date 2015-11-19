@@ -14,7 +14,8 @@ import numpy as np
 
 from scipy.misc import derivative
 from scipy      import integrate
-from scipy      import optimize
+from scipy      import interpolate
+from scipy      import optimize as opt
 import cgs as cgs
 
 
@@ -25,7 +26,7 @@ import cgs as cgs
 
 class general_dm_profile:
 
-    def __init__(self, name):
+    def __init__(self, name, optimize = False, optimize_npoints = 1.0E3):
  
         #density_profile.__init__(self, name, self.density)
         self.name    = name
@@ -38,7 +39,60 @@ class general_dm_profile:
         self.large_r = 1.0E4    * cgs.kpc
 
         self._set_params()
- 
+        self.optimize = optimize
+        
+        if self.optimize:
+            self._optimize_npoints = optimize_npoints
+            _my_print("Optimize set to " + str(self.optimize) + ". Interpolating along cumulative mass. Check results")
+        
+    def set_optimization(self, optimize, optimize_npoints = 1.0E3):
+        """
+        Sets optimization to true / false. If going from false to true, tabulates
+        cumulative mass function.
+        """
+        
+        self.optimize = optimize
+        
+        if self.optimize:
+            if not hasattr(self, '_optimize_npoints'):
+                self._optimize_npoints = optimize_npoints
+            else:
+                _my_print("Using %.2E points for interpolation. Make sure this is the desired number."%(self._optimize_npoints))
+        
+            _my_print("Optimizing in density profile:")
+        
+            self._tabulate_cumulative_mass()
+        
+        return
+        
+    def _tabulate_cumulative_mass(self):
+        
+        rmax  = self.large_r * 2. # some extra splop
+        rmin  = self.small_r * 0.75 
+       
+        r   = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
+               
+        # compute cumulative mass
+        cumulative_mass = self.cumulative_mass(r)
+       
+        # save logged values 
+        self._cumulative_mass_r     = np.log10(r)
+        self._cumulative_mass_m     = np.log10(cumulative_mass)
+        
+        
+        _my_print("Completed mass tabulation")
+        return
+        
+    def _interpolate_cumulative_mass(self, r):
+        """
+        interpolates cumulative mass function... stored values are logged
+        """
+        
+        spline = interpolate.interp1d(self._cumulative_mass_r, self._cumulative_mass_m)
+        
+        return 10.0**spline(np.log10(r))       
+        
+        
     def _set_params(self):
         self.profile_shape_params = []
         self.r_s      = None
@@ -81,16 +135,19 @@ class general_dm_profile:
         
         if self._check_params():
             self._calculate_system_mass()
-
+            
             if self.profile_shape_params[1] > 3:
                 # set large_r to be the r with 99.5% of the system mass
                 root_find = lambda x : (self.cumulative_mass(x) / self.M_sys) - 0.9995
 
                 # brent q root finder here
-                r = optimize.brentq(root_find, self.r_vir, 2.0E3*self.r_vir)
+                r = opt.brentq(root_find, self.r_vir, 2.0E3*self.r_vir)
                 
                 self.large_r = r
                 print "m_sys large r", self.large_r, self.M_sys
+                
+            if self.optimize:
+                self._tabulate_cumulative_mass()
             
     def _check_params(self):
         """
@@ -101,8 +158,7 @@ class general_dm_profile:
         params = [self.M_vir, self.r_vir, self.r_s]
         
         if any(p == None for p in params):
-            everything_OK = False 
-            
+            everything_OK = False           
         elif (self.rho_s == None):
             self.calculate_rho_s() ; everything_OK = True
             
@@ -120,7 +176,7 @@ class general_dm_profile:
         than M_vir (more for systems requireing the exponential density cutoff)
         """
         
-        if self.profile_shape_params[1] <= 3:
+        if self.profile_shape_params[1] <= 3.0:
             self.M_sys = self.cumulative_mass(self.large_r)
         else:
             self.M_sys = self.cumulative_mass(1.5E3*self.r_vir)
@@ -141,16 +197,21 @@ class general_dm_profile:
         integrand = lambda x : x*x / ((x/r_s)**(gamma) * (1.0 + (x/r_s)**(alpha))**((beta-gamma)/alpha))
 
         rmin = self.small_r ; rmax = self.r_vir
-
-        
  
         self.rho_s = (self.M_vir/(4.0*np.pi)) * (integrate.quad(integrand, rmin, rmax)[0])**(-1.0)
 
+        return
+    
     def calculate_epsilon(self):
         """
         Calculates the exponent in the exponential decay portion of the density profile
         such that the logarithmic slope at rvir is continious
         """
+        
+        #
+        # A.E TO DO: rewrite to do without the try / except. Do the if statemetent better, like
+        # in check params. Only calculate if everything is set... don't set epsilon to None
+        #
 
         if (hasattr(self, 'r_vir') and hasattr(self, 'r_s') and hasattr(self, 'profile_shape_params')\
                                    and hasattr(self, 'r_decay')):
@@ -164,18 +225,25 @@ class general_dm_profile:
             except TypeError:
                 self.epsilon = None
                 
+        return
+                
              
     def _set_values_check(self):
         if ((self.rho_s == None) and (not self.M_vir == None and not self.r_vir == None)):
             self.calculate_rho_s()
         elif (self.rho_s == None):
-            print "Error: Must set both M_vir and r_vir OR rho_s"
-
+            _my_print('Error: Cannot calculate rho_s (density constant) because M_vir or r_vir not set.')
+            
+            
         if (not hasattr(self, 'epsilon')):
             self.calculate_epsilon()
         elif (self.epsilon == None):
             self.calculate_epsilon()
 
+            
+        return 
+    
+    
     def density(self, r):
 
 
@@ -196,13 +264,13 @@ class general_dm_profile:
    
 
         # use exponential cutoff if beta <= 3
-        if beta <= 3:
+        if beta <= 3.0:
             # now calculate for values greater than the virial radius
             c = self.r_vir / self.r_s
   
-            rho[r > self.r_vir ] = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha))
+            A = self.rho_s / ( c**gamma * (1.0 + c**alpha)**((beta-gamma)/alpha))
      
-            rho[r > self.r_vir ] = rho[r>self.r_vir] * (r[r>self.r_vir]/self.r_vir)**(self.epsilon) *\
+            rho[r > self.r_vir ] = A * (r[r>self.r_vir]/self.r_vir)**(self.epsilon) *\
                                                         np.exp(-(r[r>self.r_vir]-self.r_vir)/self.r_decay)
        
 
@@ -240,7 +308,7 @@ class general_dm_profile:
                                     (beta * (r/self.r_s)**alpha + gamma) / ((r/self.r_s)**alpha + 1.0)
 
 
-        if beta <= 3:
+        if beta <= 3.0:
             first_deriv[ r > self.r_vir ] = self.density(r[r>self.r_vir]) *\
                                       ((self.epsilon/r[r>self.r_vir]) - 1.0 / self.r_decay)
         
@@ -339,7 +407,12 @@ class general_dm_profile:
         self._set_values_check()
         alpha, beta, gamma = self.profile_shape_params
 
-        tolerance = self.small_r
+        # optimization switch:
+        if self.optimize:
+            mass_function = self._interpolate_cumulative_mass
+        else:
+            mass_function = self.cumulative_mass
+        
         
         r = np.asarray(r)
         scalar_input = False
@@ -347,17 +420,19 @@ class general_dm_profile:
             r = r[None]
             scalar_input = True
    
+
+
         pot = np.zeros(np.shape(r))
 
         # second integrand
         integrand = lambda x : x * self.density(x)
 
-
         # integral at zero can just be written as the below
-        pot[r <= tolerance] = -4.0*np.pi*cgs.G * integrate.quad(integrand, self.small_r, self.large_r)[0]
+        pot[r <= self.small_r] = -4.0*np.pi*cgs.G * integrate.quad(integrand, self.small_r, self.large_r)[0]
 
         # this is first
-        A = (self.cumulative_mass(r[(r > tolerance)*(r <= self.large_r)])) / r[(r > tolerance)*(r <= self.large_r)]
+        #A = (self.cumulative_mass(r[(r > tolerance)*(r <= self.large_r)])) / r[(r > tolerance)*(r <= self.large_r)]
+        A = (mass_function(r[(r > self.small_r)*(r <= self.large_r)])) / r[(r > self.small_r)*(r <= self.large_r)]
         A = A / (4.0 * np.pi)
 
         # compute B:
@@ -366,16 +441,20 @@ class general_dm_profile:
         # esp as the density distribution eventually truncates... error becomes small after enough
         # virial radii
 
-        B = np.zeros(np.shape(r[(r > tolerance)*(r <= self.large_r)]))
+        B = np.zeros(np.shape(r[(r > self.small_r)*(r <= self.large_r)]))
         i = 0
-        for rval in r[(r > tolerance)*(r <= self.large_r)]:
+        for rval in r[(r > self.small_r)*(r <= self.large_r)]:
             B[i] = integrate.quad(integrand, rval, self.large_r)[0]
             i = i + 1
 
-        pot[(r > tolerance)*(r <= self.large_r)] = -4.0 * np.pi * cgs.G * (A + B)
+        pot[(r > self.small_r)*(r <= self.large_r)] = -4.0 * np.pi * cgs.G * (A + B)
 
         # outside large_r, just potential due to a sphere of mass M
-        pot[r > self.large_r] = - cgs.G * self.M_sys / r[r > self.large_r]
+        # maybe just pick value of potential at large r and have it go down by 1/r
+        #pot[r > self.large_r] = - cgs.G * self.cumulative_mass(self.large_r) / r[r > self.large_r]
+        if any(r > self.large_r): # nec b/c of recursion
+            pot[r > self.large_r] = self.potential(self.large_r) *\
+                                (self.large_r / r[r > self.large_r])
         
         if scalar_input:
             return np.squeeze(pot)
@@ -386,8 +465,14 @@ class general_dm_profile:
         """
         Computes derivative of potential with respect to radius
         """
-
-        return cgs.G * self.cumulative_mass(r) / r**2.0
+        # optimization switch:
+        if self.optimize:
+            mass_function = self._interpolate_cumulative_mass
+        else:
+            mass_function = self.cumulative_mass
+            
+            
+        return cgs.G * mass_function(r) / r**2.0
 
     def d2Phi_dr2(self, r):
         """
@@ -395,3 +480,9 @@ class general_dm_profile:
         """
 
         return 4.0 * np.pi * cgs.G * self.density(r) - 2.0 * self.dPhi_dr(r) / r
+
+
+def _my_print(string):
+    
+    print "[Profile] : ", string
+    return
