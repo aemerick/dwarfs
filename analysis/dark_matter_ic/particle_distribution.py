@@ -12,8 +12,8 @@ particle_distribution
 from __future__ import division
 
 import numpy as np
-from scipy      import optimize     # for root finder
-from scipy      import interpolate  # for optimizing generating the PD
+from scipy      import optimize    as opt   # for root finder
+from scipy      import interpolate          # for optimizing generating the PD
 from scipy      import integrate
 
 import cgs as cgs
@@ -45,7 +45,7 @@ def _while_loop(pd, nmax, max_loop, ncore, outfile):
     # choose a different seed for each processor from the list so each processor has
     # a different randum number seed. Then, fiddle with each seed a little so 
     # the seeds aren't the same every time the code is run
-    seed = random_number_seeds[pid] * np.int(np.random.rand()*(2.0 - 0.01) + 0.01)
+    seed = np.int(random_number_seeds[pid] * (np.random.rand()*(10.0 - 0.01) + 0.01))
     
     np.random.seed(seed)
     
@@ -53,8 +53,11 @@ def _while_loop(pd, nmax, max_loop, ncore, outfile):
     
     n_particles = 0
     loop_counter = 0
-    F_max = np.max(pd.DF.f) ; F_min = np.min(pd.DF.f)
-
+    fmin_scale = 1.0E-100 # -16 -> -32 -> -100
+    F_max = np.max(pd.DF.f) #; F_min = np.min(pd.DF.f);
+    F_min = np.min(pd.DF.f) * fmin_scale
+    # F_max = np.max(pd.DF.f[:-1])#; F_max = 1.0E-88
+    #print F_min, F_max
     if pd.optimize:
         relative_potential = pd._interpolate_relative_potential
     else:
@@ -72,12 +75,28 @@ def _while_loop(pd, nmax, max_loop, ncore, outfile):
         v = pd._choose_velocity(r, Psi)
      
         E = Psi - 0.5 * v * v
-        
+       
         f_E = pd.DF.interpolate_f(E)
-            
-        F = 10.0**( np.random.rand()*(np.log10(F_max) - np.log10(F_min)) + np.log10(F_min) )
-            
-        if F <= f_E: # accept particle
+        
+        logF = ( np.random.rand()*(np.log10(F_max) - np.log10(F_min)) + np.log10(F_min) )
+        
+        # if choosing random F in log F, might be good to do the comparison in logspace as well
+        #.... i.e  log(F) <= log(f_E) 
+        #
+        # 0 FOR F_E MEANS THAT  E < E_min of the potential. THis happens when Psi - KE is smaller
+        # than the value of the potential at large_r... should this be considered unbound 
+        # even though it isn't zero? Is this effectively zero? This has been adjusted in the velocity
+        # picking routine but needs verification to make sure it works.... but regardless, I doubt
+        # that this is the reason why the particles are failing for NFW but working for hernquist....
+        #
+        if np.abs(np.log10(f_E)) == np.inf:
+            keep_particle = False
+            _my_print('log value error... throwing out particle')
+        else:
+            keep_particle = (logF <= np.log10(f_E))
+
+        
+        if keep_particle:  
             index = n_particles 
                 
             # convert position to cartesian using random theta and phi
@@ -103,7 +122,7 @@ def _while_loop(pd, nmax, max_loop, ncore, outfile):
              
             n_particles = n_particles + 1
                               
-        if (loop_counter % 2500) == 0:
+        if (loop_counter % 10000) == 0:
             _my_print("Have %4i particles. On loop %6i"%(n_particles, loop_counter))
         loop_counter = loop_counter + 1
     
@@ -119,7 +138,6 @@ def _while_loop(pd, nmax, max_loop, ncore, outfile):
         
     f.close()   
     
-    #OUTPUT.put([pos,vel])
     return pos, vel
                 
 
@@ -184,12 +202,8 @@ class particle_distribution:
             self._tabulate_cumulative_mass()
             self._tabulate_relative_potential()
             
-            # set small r as smallest r in the interpolated profiles
-            self.small_r = np.min(np.array([self._cumulative_mass_r,self._relative_potential_r]))
-            self.small_r = 10.0**self.small_r
-            
         else:
-            _my_print("Optimization turned off. Will run slow, even if parallelized")
+            _my_print("Optimization turned off. Will run VERY SLOW, even if parallelized")
         
       
         
@@ -220,7 +234,6 @@ class particle_distribution:
          
         
         F_max = np.max(self.DF.f) ; F_min = np.min(self.DF.f)
-        #print F_max, self.DF.E[np.argmax(self.DF.f)], np.min(self.DF.E), np.max(self.DF.E), np.min(self.DF.f)
 
         n_particles = 0
         loop_counter = 0
@@ -242,10 +255,10 @@ class particle_distribution:
             v     = self._choose_velocity(r, Psi)
         
             E     = Psi - 0.5 * v * v
-        
+
             # interpolate along DF to find f(E) of chosen particle
             f_E = self.DF.interpolate_f(E)
-            
+
             # random number from 0 to F_max for accept reject
             #F = np.random.rand() * F_max
             
@@ -350,6 +363,10 @@ class particle_distribution:
             bash_command = bash_command + temp_name + " "
         os.system(bash_command)
         
+        bash_command = "sed -i -e '1i#m x y z vx vy vz\' " + outfile
+        os.system(bash_command)
+        self.load_particle_ic(outfile)
+        
         return self.pos, self.vel
     
     
@@ -375,7 +392,12 @@ class particle_distribution:
         
         u = np.random.rand()
         
-        v_max = np.sqrt(2.0 * Psi)
+        # Psi - E_min
+        
+        # AE BE VERY CAREFUL WITH THIS ADDED RESTRICTION ON THE VELOCITY
+        # VERIFY THAT THIS MAKES FOR STABLE PARTICLES!!!!!
+        v_max = np.sqrt(2.0 * (Psi - np.min(self.DF.E)))
+        
         return u * v_max
     
     def _choose_position_2(self):
@@ -400,13 +422,15 @@ class particle_distribution:
         # optimization switches
         if self.optimize:
             mass_func = self._interpolate_cumulative_mass
+            
+            umin = self._mass_umin
+            umax = self._mass_umax
         else:
             # use exact profile
             mass_func = self.DF.dprof.cumulative_mass
         
-        
-        umin = mass_func(1.00001*self.small_r) / self.DF.dprof.M_sys
-        umax = mass_func(0.99999*self.DF.dprof.large_r) / self.DF.dprof.M_sys
+            umin = mass_func(self.DF.dprof.small_r) / self.DF.dprof.M_sys
+            umax = mass_func(self.DF.dprof.large_r) / self.DF.dprof.M_sys
                 
         
         failed = True
@@ -421,8 +445,8 @@ class particle_distribution:
             try:
                 u = np.random.rand()*(umax - umin) + umin
 
-                r = optimize.brentq(_root_function, self.small_r, self.DF.dprof.large_r, 
-                                    args=(mass_func ,u,self.DF.dprof.M_sys,))
+                r = opt.brentq(_root_function, self.DF.dprof.small_r, self.DF.dprof.large_r, 
+                                    args=(mass_func ,u, self.DF.dprof.M_sys,))
                 failed = False
             
             except:
@@ -471,11 +495,18 @@ class particle_distribution:
         
     def _tabulate_cumulative_mass(self):
         
-        rmax  = self.DF.dprof.large_r
-        rmin  = self.DF.dprof.small_r*1.000001
-
+        rmax  = self.DF.dprof.large_r #* 1.01 # some extra splop
+        rmin  = self.DF.dprof.small_r #* 0.999 
+        sub_sample = 0.2
         
-        r   = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
+        r = np.zeros( self._optimize_npoints + np.ceil(sub_sample*self._optimize_npoints))
+        
+        r[:self._optimize_npoints] = np.logspace(np.log10(rmin),
+                                                np.log10(rmax*0.98), self._optimize_npoints)
+        
+        r[self._optimize_npoints:] = np.logspace(np.log10(rmax*0.98),
+                                                 np.log10(rmax),
+                                               np.ceil(sub_sample*self._optimize_npoints))
        
         
         # compute cumulative mass
@@ -484,17 +515,26 @@ class particle_distribution:
         # save logged values 
         self._cumulative_mass_r     = np.log10(r)
         self._cumulative_mass_m     = np.log10(cumulative_mass)
-                
+        self._mass_umin = self._interpolate_cumulative_mass(self.DF.dprof.small_r) / self.DF.dprof.M_sys
+        self._mass_umax = self._interpolate_cumulative_mass(self.DF.dprof.large_r) / self.DF.dprof.M_sys
+        
         _my_print("Completed mass tabulation")
         return
         
     def _tabulate_relative_potential(self):
         
-        rmax  = self.DF.dprof.large_r    
-        rmin  = self.DF.dprof.small_r*1.000001
-
-                
-        r     = np.logspace(np.log10(rmin), np.log10(rmax), self._optimize_npoints)
+        rmax  = self.DF.dprof.large_r * 1.01 # some extra splop
+        rmin  = self.DF.dprof.small_r * 0.999 
+        sub_sample = 0.2
+        
+        r = np.zeros( self._optimize_npoints + np.ceil(sub_sample*self._optimize_npoints))
+        
+        r[:self._optimize_npoints] = np.logspace(np.log10(rmin),
+                                                np.log10(rmax*0.98), self._optimize_npoints)
+        
+        r[self._optimize_npoints:] = np.logspace(np.log10(rmax*0.98),
+                                                 np.log10(rmax),
+                                               np.ceil(sub_sample*self._optimize_npoints))
 
         # compute relative potential
         relative_potential = self.DF.relative_potential(r)
@@ -550,6 +590,7 @@ class particle_distribution:
         vr = self.vr()
         
         if vr_bins == None and not nbins == None:
+            
             vr_bins = np.linspace(0.0, np.max(vr), nbins + 1)
         elif nbins == None and vr_bins == None:
             nbins = 100
@@ -591,6 +632,27 @@ class particle_distribution:
         density = self.M_part * r_hist / volume
 
         return r_cent, density
+    
+    def cumulative_mass_profile(self, r):
+        
+        r_particles = self.r()
+        
+        r = np.asarray(r)
+        scalar_input = False
+        if r.ndim == 0:
+            r = r[None]
+            scalar_input = True
+        mass = np.zeros(np.size(r))
+        
+        i = 0
+        for rval in r:
+            mass[i] = np.size( r_particles[r_particles <= rval] ) * self.M_part
+            i = i + 1
+            
+        if scalar_input:
+            return np.squeeze(mass)
+        else:
+            return mass
 
     def potential_from_particles(self, nbins = None, r_bins = None):
         """
