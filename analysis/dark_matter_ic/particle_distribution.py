@@ -12,17 +12,21 @@ particle_distribution
 from __future__ import division
 
 import numpy as np
+import random # ew
 from scipy      import optimize    as opt   # for root finder
 from scipy      import interpolate          # for optimizing generating the PD
 from scipy      import integrate
 
-import cgs as cgs
+import cgs as cgs # need to remove this if others are going to use it.... just put in constants as globals
+
 
 import multiprocessing
 from multiprocessing import Pool
 import os
 
 OUTPUT = multiprocessing.Queue()
+
+USE_ANGLE_SELECTION = True
 
 def _while_loop(pd, nmax, max_loop, ncore, outfile):
     """
@@ -98,9 +102,15 @@ def _while_loop(pd, nmax, max_loop, ncore, outfile):
         
         if keep_particle:  
             index = n_particles 
+             
+            #    
+            # need to sample in cosine theta NOT theta!!!!! WTF!!!!!
+            #
+            #
+            
+            theta = np.arccos( np.random.rand() * (2.0) - 1.0)
                 
             # convert position to cartesian using random theta and phi
-            theta = np.random.rand() * np.pi
             phi   = np.random.rand() * 2.0 * np.pi
                 
             x = np.sin(theta) * np.cos(phi)
@@ -108,9 +118,9 @@ def _while_loop(pd, nmax, max_loop, ncore, outfile):
             z = np.cos(theta)
                 
             pos[index] = r * np.array([x,y,z])
-                
+
             # repeat for velocity using new random numbersw
-            theta = np.random.rand() * np.pi
+            theta = np.arccos( np.random.rand() * (2.0) - 1.0)
             phi   = np.random.rand() * 2.0 * np.pi
                
             vx = np.sin(theta) * np.cos(phi)
@@ -118,11 +128,62 @@ def _while_loop(pd, nmax, max_loop, ncore, outfile):
             vz = np.cos(theta)
                 
             vel[index] = v * np.array([vx,vy,vz])
-                
-             
+            """    
+            #else: # do strict cartesian ... slower.... less attractive
+            # 
+            #    axis_list  = [0, 1, 2]
+            #    random.shuffle(axis_list)
+            
+            #    #axis_index = np.random.randint(3)
+            #    first_axis = axis_list[0]
+            #
+            #    pos[index, first_axis] = np.random.rand() * (2.0*r) - r
+                #del axis_list[axis_index]
+            
+                #axis_index  = np.random.randint(2)
+            #   second_axis = axis_list[1]
+            
+                max_r = np.sqrt(r*r - pos[index,first_axis]**2)
+            
+                pos[index, second_axis] = np.random.rand()*(2.0 * max_r) - max_r
+                #del axis_list[axis_index]
+            
+                max_r = np.sqrt(r*r - pos[index,first_axis]**2 - pos[index,second_axis]**2)
+            
+                third_axis = axis_list[2]
+                pos[index, third_axis] = np.random.rand() * (2.0 * max_r) - max_r
+            
+                if np.sqrt(pos[index,0]**2 + pos[index,1]**2 + pos[index,2]**2) > r:
+                    _my_print('R IS TOO LARGE')
+            
+                ###
+                axis_list  = [0, 1, 2]
+                random.shuffle(axis_list)
+            
+                #axis_index = np.random.randint(3)
+                first_axis = axis_list[0]
+            
+                vel[index, first_axis] = np.random.rand() * (2.0*v) - v
+                #del axis_list[axis_index]
+            
+                #axis_index  = np.random.randint(2)
+                second_axis = axis_list[1]
+            
+                max_v = np.sqrt(v*v - vel[index,first_axis]**2)
+            
+                vel[index, second_axis] = np.random.rand()*(2.0 * max_v) - max_v
+                #del axis_list[axis_index]
+            
+                max_v = np.sqrt(v*v - vel[index,first_axis]**2 - vel[index,second_axis]**2)
+            
+                third_axis = axis_list[2]
+                vel[index, third_axis] = np.random.rand() * (2.0 * max_v) - max_v            
+            
+ 
+             """
             n_particles = n_particles + 1
                               
-        if (loop_counter % 10000) == 0:
+        if (loop_counter % 5000) == 0:
             _my_print("Have %4i particles. On loop %6i"%(n_particles, loop_counter))
         loop_counter = loop_counter + 1
     
