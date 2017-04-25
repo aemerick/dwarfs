@@ -3,6 +3,7 @@
 import yt
 import numpy as np
 import cgs   as cgs
+import sys
 
 # mutliplicative factors to convert from Halogen's
 # code units to cgs
@@ -12,7 +13,7 @@ unit_conversion = {'MU': 2.222962E5 * cgs.Msun,
                    'LU': cgs.kpc}
                   
 
-def convert_to_ascii(datafile, units = None, fmt=None, outfile = None):
+def convert_to_ascii(datafile, units = 'sim', fmt=None, outfile = None):
 
     ds   = yt.load(datafile)
     data = ds.all_data()
@@ -26,14 +27,20 @@ def convert_to_ascii(datafile, units = None, fmt=None, outfile = None):
         vel = vel * unit_conversion['VU']
         m   = m   * unit_conversion['MU']
 
+    if units == 'sim':
+        pos = pos * unit_conversion['LU'] / cgs.pc
+        vel = vel * unit_conversion['VU'] / 1.0E5
+        m   = m * unit_conversion['MU'] / cgs.Msun
+
 
     N = np.size(m)
 
-    if fmt == None:
+    if fmt is None:
         fmt = "%8.8E "
 
-    if outfile == None:
+    if outfile is None:
         outfile = datafile.replace('.tipsy.std','.ascii.dat')
+        outfile = datafile.replace('.tipsy.dpp.std','.ascii.dat')
 
 
     fmt_string = fmt + fmt + fmt + fmt + fmt + fmt + fmt + "\n"  
@@ -48,3 +55,5 @@ def convert_to_ascii(datafile, units = None, fmt=None, outfile = None):
 
             
 
+if __name__=='__main__':
+    convert_to_ascii(sys.argv[1],outfile = sys.argv[2])    
