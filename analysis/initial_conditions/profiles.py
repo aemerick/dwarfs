@@ -518,7 +518,7 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
     
         rmatch = r_HI
     
-    elif not n_o == None and not r_HI == None:
+    elif not n_o == None and not r_HI == None and r_HI > 0:
         rho_o = n_o * cgs.mp * mu_halo
         
         n_dens = lambda r: n_o * np.exp(-C_NFW*(1.0-np.log(1.0+r/r_s)/(r/r_s)))       
@@ -528,7 +528,7 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
         
         #
         rmatch = r_HI
-    
+
     else: # if n_o is provided and r_HI and M_HI are not
         rho_o = n_o * cgs.mp * mu_halo
 
@@ -543,7 +543,7 @@ def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T,
 
         # Now find r such that Pdwarf = Pcorona
         rmatch = opt.bisect(eq_solve, 1.0*cgs.pc, 2000.0*cgs.pc)
-
+    
        
     return c, r_s, M200, n_o, T_halo, n_halo, rmatch
 
