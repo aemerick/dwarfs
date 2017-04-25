@@ -90,28 +90,48 @@ class analytical_dwarf:
         if 'potential' in self.ic.keys():
             potential = self.ic['potential']
             
+        if 'potential_type' in self.ic.keys():
+            potential = self.ic['potential_type']
+            
         if potential == 'NFW':
-            return prof.NFW_isothermal_gas(R,    r_s=self.ic['b'],
+            dens = prof.NFW_isothermal_gas(R,    r_s=self.ic['b'],
                                                  M200=self.ic['M200'],
                                                  T = self.ic['T_dwarf'], 
                                                  n_o = self.ic['n_o'],
                                                  mu=self.ic['mu_dwarf'],
                                                  rho_crit=self.ic['rho_crit'],
                                       Pcorona = self.ic['n_halo']*cgs.kb*self.ic['T_halo'])
-        
-        
+        elif potential == 'Burkert' or potential == 'Burkert_isothermal':
+            dens = prof.Burkert_isothermal_gas(R,    r_s = self.ic['b'], M200 = self.ic['M200'],
+                                                     T   = self.ic['T_dwarf'], n_o = self.ic['n_o'],
+                                                     mu = self.ic['mu_dwarf'],
+                                                     rho_crit = self.ic['rho_crit'])
+            
+        return dens
+    
+    
     def DM_profile(self, R, potential='NFW'):
         """
         Evaluate dark matter profile at given radii. DM profile picked from profiles module        
         """
-        
+
         if 'potential' in self.ic.keys():
             potential = self.ic['potential']
             
+        if 'potential_type' in self.ic.keys():
+            potential = self.ic['potential_type']
+           
+            
         if potential == 'NFW':
-            return prof.NFW_DM(R, r_s=self.ic['b'], M200=self.ic['M200'], rho_crit=self.ic['rho_crit'],
+            dens =  prof.NFW_DM(R, r_s=self.ic['b'], M200=self.ic['M200'], rho_crit=self.ic['rho_crit'],
                                decay=False, r_decay=None)
         
+        elif potential == 'Burkert':
+            dens = prof.burkert_DM(R, self.ic['b'], self.ic['M200'], rho_crit=self.ic['rho_crit'])
+        
+
+        
+        return dens
         
     def evolve(self, t, included_physics, physics_kwargs={}, **kwargs):
         """
@@ -228,7 +248,7 @@ class analytical_dwarf:
                 
                 sign_sum = l + r # either 2, 0, or -2 ... want the zeros
                 r_near_root = r_sample[sign_sum == 0]
-                print r_near_root
+
                 if np.size(r_near_root) > 1:
                     r_near_root = r_near_root[-1]
                 else:
