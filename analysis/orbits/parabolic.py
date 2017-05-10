@@ -4,11 +4,14 @@ from scipy import optimize as opt
 from astropy import units as u
 from astropy import constants as const
 
+
+
+
 class parabolic:
 
-    def __init__(self, M_v = 1.0E9*u.Msun, M_p = 1.0E10*u.Msun,
-                       b   = 20.0*u.kpc, t_o = -500*u.Myr,
-                       alpha = 0.0, dt = 0.1*u.Myr,
+    def __init__(self, M_v = 1.0E10*u.Msun, M_p = 1.0E11*u.Msun,
+                       b   = 20.0*u.kpc, t_o = -1000*u.Myr,
+                       alpha = np.pi/6.0, dt = 0.5*u.Myr,
                        t_final = None):
 
         self.M_v = M_v
@@ -48,11 +51,11 @@ class parabolic:
         # is zero, and that euler angle phi and euler angle psi are 
         # both equal to the inclination angle (alpha)
  
-        alpha_n = self.alpha + np.pi / 2.0  # renormalize angle to be correct
+        alpha_n = self.alpha #+ np.pi / 2.0  # renormalize angle to be correct
 
         x =  x_o * np.cos(alpha_n) + y_o * np.sin(alpha_n)
-        y = -x_o * np.sin(alpha_n) + y_o * np.cos(alpha_n) * np.cos(alpha_n) + z_o * np.sin(alpha_n)
-        z = -y_o * np.sin(alpha_n) * np.cos(alpha_n) + z_o * np.cos(alpha_n)
+        y = -x_o * np.sin(alpha_n) * np.cos(alpha_n) + y_o * np.cos(alpha_n) * np.cos(alpha_n) + z_o * np.sin(alpha_n)
+        z =  x_o * np.sin(alpha_n) * np.sin(alpha_n) - y_o * np.sin(alpha_n) * np.cos(alpha_n) + z_o * np.cos(alpha_n)
 
         
         # x = r * np.cos(phi) * np.sin(self.alpha + np.pi/2.0)
@@ -120,8 +123,34 @@ def plot_orbit():
 
 
 if __name__ == "__main__":
+    from mpl_toolkits.mplot3d import Axes3D
+    import matplotlib.pyplot as plt
+
+
     print 'running test orbit'
 
     orbit = parabolic()
 
     orbit.save_orbit()
+
+    data = np.genfromtxt('parabolic_orbit.txt', names = True)
+
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+
+    ax.scatter(data['x'], data['y'], data['z'],  c = plt.cm.viridis(data['t']/np.max(data['t'])))
+    
+    npoints = 1.0E5
+    r = np.random.rand(npoints) * 10
+    theta = np.random.rand(npoints) * 2.0 * np.pi
+
+    ax.scatter(r*np.cos(theta), r * np.sin(theta), np.zeros(npoints), c = 'black')
+    ax.view_init(elev = 0.0, azim = 0.0)
+
+    ax.set_xlabel('x'); ax.set_ylabel('y'); ax.set_zlabel('z')
+    fig.savefig('parabolic_orbit.png')
+    plt.show()
+	
+
