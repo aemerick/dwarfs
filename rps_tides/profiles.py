@@ -117,12 +117,16 @@ def gas_surface_density(r,a=1.7*cgs.kpc,b=.34*cgs.kpc,M=5.0e8*cgs.Msun):
         return M/(8.0*a**2*np.cosh(r/a))
 
 
-def gas_profile_function(r, sigma):
+def gas_profile_function(r, sigma, unit = 1.0):
     """
     Wrapper around scipy's cubic spline function
     """
     x = r
     y = sigma
+
+    if unit == 'cgs':
+        unit = cgs.pc**2 / cgs.Msun  # convert to cgs
+
     if np.min(r) > 0:
         x = np.zeros(np.size(r)+1)
         x[1:] = r
@@ -132,7 +136,17 @@ def gas_profile_function(r, sigma):
         y[1:] = sigma
         y[0]  = sigma[0]
 
-    return CubicSpline(x,y)
+    spline_function = CubicSpline(x,y)
+
+    def _function(xval):
+        if xval > x[-1]:
+            return y[-1]*1.0E-10 / unit # effectively zero
+        if xval < x[0]:
+            return y[0] / unit # flat core
+
+        return spline_function(xval) / unit
+
+    return _function
 
 def generate_gas_profile(ds, data, rbins = None, com = [0.5,0.5,0.5],
                                    Rvir = 25.0, los = 'z'):
@@ -159,7 +173,7 @@ def generate_gas_profile(ds, data, rbins = None, com = [0.5,0.5,0.5],
     r = np.sqrt((disk[a1[0]]-com[a1[1]])**2 + (disk[a2[0]]-com[a2[1]])**2).convert_to_units('kpc').value
 
     SD = np.zeros(np.size(rbins) - 1 )
-    N  = np.zeros(np.size(rbins) - 1 )
+#    N  = np.zeros(np.size(rbins) - 1 )
     rc = 0.5 * (rbins[1:] + rbins[:-1])
 
     mass = disk['cell_mass']
@@ -174,10 +188,10 @@ def generate_gas_profile(ds, data, rbins = None, com = [0.5,0.5,0.5],
         area = np.pi*(rbins[i]**2 - rbins[i-1]**2) * yt.units.kpc**2
 
         SD[i-1] = ((m / area).convert_to_units('Msun/pc**2')).value
-        N[i-1]  = ((m/yt.physical_constants.mass_hydrogen)/area).convert_to_units('cm**(-2)')).value
+#        N[i-1]  = ((m / area).convert_to_units('cm**(-2)')).value
  
 
-    return rbins, SD, N
+    return rbins, SD # , N
 
 
 
