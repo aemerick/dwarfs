@@ -26,8 +26,11 @@ def stripping_radius(star, gas, Pram = None, rho = None, v = None,
     func = lambda x : 2.0*np.pi*cgs.G*( star(x) + alpha*gas(x))*gas(x) - Pram
 
     # completely stripped
-    if func(0) <= 0.0:
+    if func(1.0E-10 * rmax) <= 0.0:
         return 0.0
+
+    if func(rmax) > 0.0:
+        return -1
 
     Rstrip = brentq(func, 1.0E-10*rmax, rmax)
 
@@ -35,7 +38,6 @@ def stripping_radius(star, gas, Pram = None, rho = None, v = None,
         Rstrip = 0.0
 
     return Rstrip / lu
-    
 
 if __name__ == "__main__":
     # try with all of the defaults
