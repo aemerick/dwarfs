@@ -1,5 +1,7 @@
 import numpy as np
 import cgs 
+import yt
+from scipy.interpolate import CubicSpline
 
 def stellar_disk_density(r,z,M=2.7e9*cgs.Msun,a=1.7*cgs.kpc,b=.34*cgs.kpc):
         """
@@ -115,3 +117,88 @@ def gas_surface_density(r,a=1.7*cgs.kpc,b=.34*cgs.kpc,M=5.0e8*cgs.Msun):
         return M/(8.0*a**2*np.cosh(r/a))
 
 
+def gas_profile_function(r, sigma):
+    """
+    Wrapper around scipy's cubic spline function
+    """
+    x = r
+    y = sigma
+    if np.min(r) > 0:
+        x = np.zeros(np.size(r)+1)
+        x[1:] = r
+        x[0]  = 0.0
+
+        y = np.zeros(np.size(r)+1)
+        y[1:] = sigma
+        y[0]  = sigma[0]
+
+    return CubicSpline(x,y)
+
+def generate_gas_profile(ds, data, rbins = None, com = [0.5,0.5,0.5],
+                                   Rvir = 25.0, los = 'z'):
+    """
+    Returns the total gas density surface density profile given
+    a data set.
+    """
+
+    if rbins is None:
+        rbins = np.arange(0.0, (4.0 * Rvir/10.0), 0.050) * yt.units.kpc
+
+    disk = ds.disk(com, [0,0,1], (4.0 * Rvir / 10.0, 'kpc'),
+                                 (Rvir / 10.0 * 0.5, 'kpc'))
+    if los == 'z':
+        a1 = ('x',0)
+        a2 = ('y',1)
+    elif los == 'y':
+        a1 = ('x',0)
+        a2 = ('z',2)
+    elif los == 'x':
+        a1 = ('y', 1)
+        a2 = ('z', 2)
+
+    r = np.sqrt((disk[a1[0]]-com[a1[1]])**2 + (disk[a2[0]]-com[a2[1]])**2).convert_to_units('kpc').value
+
+    SD = np.zeros(np.size(rbins) - 1 )
+    N  = np.zeros(np.size(rbins) - 1 )
+    rc = 0.5 * (rbins[1:] + rbins[:-1])
+
+    mass = disk['cell_mass']
+    
+    for i in np.arange(1, len(rbins)):
+
+        select = (r >= rbins[i-1])*(r<rbins[i])
+
+        dx = disk['dx'] ; dy = disk['dy'] ; dz = disk['dz']
+
+        m    = np.sum(mass[select])
+        area = np.pi*(rbins[i]**2 - rbins[i-1]**2) * yt.units.kpc**2
+
+        SD[i-1] = ((m / area).convert_to_units('Msun/pc**2')).value
+        N[i-1]  = ((m/yt.physical_constants.mass_hydrogen)/area).convert_to_units('cm**(-2)')).value
+ 
+
+    return rbins, SD, N
+
+
+
+def center_of_mass(ds):
+    """
+    Compute the center of mass of the galaxy.. use this as the
+    central coordinates
+    """
+
+    data = ds.all_data()
+
+    # DM halo COM as first guess - search within this region
+    com  = ds.quantities.center_of_mass(use_gas = False, use_particles = True)
+
+    sp   = ds.sphere(com, (4.0 * ds.parameters['DiskGravityDarkMatterR'],'Mpc'))
+
+    
+    for x in [2.0, 1.0]:
+        com = sp.quantities.center_of_mass(use_gas = False, use_particles=True)
+        sp  = ds.sphere(com, x * (ds.parameters['DiskGravityDarkMatterR'], 'Mpc'))
+
+    com = sp.quantities.center_of_mass(use_gas=True, use_particles=True)
+
+    return com
