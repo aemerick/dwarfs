@@ -30,6 +30,8 @@ def NFW_mass(r, c = 12, M200 = 1.0E12*cgs.Msun, rho_crit=9.74E-30):
     R200 = (3.0 * M200 / (4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
     fc   = np.log(1.0 + c) - c/(1.0+c)
     x    = r * c /R200
+    rho_s = 200.0/3.0 * rho_crit * c**3 / (np.log(1.0+c) - c/(1.0+c))
+    print "R200 = %5.5E  -  r_s = %5.5E  - rho_o = %5.5E"%(R200 / cgs.kpc, R200 / (1.0*c) / cgs.kpc, rho_s) 
 
     return M200 / fc * ( np.log(1.0+x) - x/(1.0+x))
 
