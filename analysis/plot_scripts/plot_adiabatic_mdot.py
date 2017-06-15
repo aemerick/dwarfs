@@ -15,9 +15,9 @@ line_width = 2.5
 
 work_dir = '/home/emerick/Research/dwarfs/flash_runs/leo_T'
 base_name = 'dwarf_fullp_hdf5'
-figure_name = 'LT_adiabatic_mass_evolution.png'
+figure_name = 'LT_adiabatic_mdot.png'
 
-mass_file_ext = '_cont_mass_1-0.dat'
+mass_file_ext = '_cont_mass_1-0_mdot.dat'
 
 # load known subdirectories
 sub_dirs = next(os.walk(work_dir))[1]
@@ -37,7 +37,7 @@ mass_files = [s + '/' + name + mass_file_ext for s,name in zip(sim_dirs,sim_name
 fig, ax = plt.subplots(3,2) 
 
 n020_loc = 0 ; v2_loc = 0 ; nh3_color = 'blue'
-n075_loc = 1 ; v4_loc = 1 ; nh4_color = 'black'
+n075_loc = 1 ; v4_loc = 1 ; nh4_color = 'green'
 n150_loc = 2 ;              nh5_color = 'red'
 
 nh3_label = r'n$_{\rm{halo}}$ = 10$^{%1i}$ cm$^{-3}$'%(-3)
@@ -46,10 +46,11 @@ nh5_label = r'n$_{\rm{halo}}$ = 10$^{%1i}$ cm$^{-3}$'%(-5)
 
 
 xlabel = r'Time (Myr)'
-ylabel = r'M$_{\rm{cold,gas}}$ / M$_{\rm{o}}$'
+ylabel = r'$\dot{M}$ (M$_{\odot}$ Myr$^{-1}$)'
 
 xlim = (0.0, 2000.0)
-ylim = (0.0,    1.0)
+ylim = (10.0, 1.0E3)
+#ylim = (0.0,    1.0)
 
 for i in np.arange(len(sim_names)):
     name = sim_names[i]
@@ -85,21 +86,15 @@ for i in np.arange(len(sim_names)):
 
         try:
             data = np.genfromtxt(mass_file,names=True)
-            ax[plot_loc].plot(data['t'] , data['m']/data['m'][0], color = color,
+            ax[plot_loc].plot(data['t'] , -1.0*data['mdot'], color = color,
                                           lw = line_width, ls = '-', label=label)
 
             axis = ax[plot_loc]
             axis.annotate(model_label,xy=(1400,0.8),xytext=(1400,0.8),textcoords='data')
 
-          #  print name, data['t'][ np.where(data['m'][data['t']<100] == np.min(data['m'][data['t'] < 100]))]
-            
-            
-            t_strip = dw.predict_stripping_time(data['t'], data['m'], t_fit = 100.0)
-
-            print name + ' stipping time %.3f Gyr'%(t_strip/1000.0)
-            
-            
-            
+            mdot_60 = np.average(data['mdot'][(data['mdot']<0.0)*(data['t'] < 60.0)])
+            mdot_500_1000 = np.average(data['mdot'][(data['mdot']<0.0)*(data['t'] < 1000.0)*(data['t'] > 500.0)])
+            print name, mdot_60, mdot_500_1000
         except:
             print 'nothing'        
     else:
@@ -109,6 +104,8 @@ for i in np.arange(len(sim_names)):
     ax[plot_loc].set_ylim(ylim)
     ax[plot_loc].set_xlabel(xlabel)
     ax[plot_loc].set_ylabel(ylabel)
+    ax[plot_loc].semilogy()
+
 
 ax[(0,v2_loc)].set_title(r'v$_{\rm{gal}}$ = %3i km s$^{-1}$'%(200.0))
 ax[(0,v4_loc)].set_title(r'v$_{\rm{gal}}$ = %3i km s$^{-1}$'%(400.0))

@@ -7,6 +7,8 @@ from initial_conditions import ic_list as icl ;
 from analytic_model import dwarf_model as dw_model
 from   matplotlib    import rc
 
+from scipy import integrate
+
 fsize = 15
 rc('text', usetex=True)
 rc('font', size=fsize)#, ftype=42)
@@ -65,32 +67,57 @@ for name in model_names:
                      xytext=(x, 0.275*y), color=colors[no],
                      arrowprops=dict(facecolor=colors[no],shrink=0.05) ) 
     elif 'n150' in name:
-        x = 175.0 ; y = models[name].gas_profile(x*cgs.pc)
+        x = 40.0 ; y = models[name].gas_profile(x*cgs.pc)
         plt.annotate(r'M$_{\rm{gas}}$ = %.2f $\times$ 10$^{%1i}$ M$_{\odot}$'%(Mnumber, power), 
                      xy=(x, y),
                      xytext=(x, 2.2*y), color=colors[no],
                      arrowprops=dict(facecolor=colors[no],shrink=0.05) )                                         
+
+        
+        
+# add burkert profile
+bname = 'Leo_T_Burkert'
+ic = icl.ic_object_dict[bname]
+models[bname] = dw_model.analytical_dwarf(bname, ic.ic)
+
+
+plt.plot(r/cgs.pc, models[bname].gas_profile(r), color = 'green', ls = '--', lw=line_width,label='Burkert')
+
+print 'central density', models[bname].gas_profile(0.01*cgs.pc) / (cgs.mp * ic.ic['mu_dwarf'])
 
 plt.semilogy()                
 plt.xlim(np.min(r)/cgs.pc, np.max(r)/cgs.pc)
 plt.xlabel(r'Radius (pc)')
 plt.ylabel(r'Gas Density (g cm$^{-3}$)')
 plt.legend(loc='best',fancybox=True)
-plt.savefig('LT_initial_gas_density.png')
+plt.savefig('LT_initial_gas_density_burkert.png')
 plt.close()
 
 r = np.linspace(0.0, initial_conditions.ic['r_DM'], 100)
 
 # now plot the dark matter profile
 plt.plot(r/cgs.pc, models[models.keys()[0]].DM_profile(r),
-                color = 'black',
+                color = 'black', label= 'NFW',
                 ls = '-', lw = line_width)
+
+plt.plot(r/cgs.pc, models[bname].DM_profile(r), color = 'green', ls = '--', lw=line_width,label='Burkert')
+plt.legend(loc='best')
 
 plt.semilogy()                
 plt.xlim(np.min(r)/cgs.pc, np.max(r)/cgs.pc)
 plt.xlabel(r'Radius (pc)')
 plt.ylabel(r'Dark Matter Density (g cm$^{-3}$)')
 
-plt.savefig('LT_initial_DM_density.png')
+plt.savefig('LT_initial_DM_density_burkert.png')
 plt.close()
 
+print "Leo T Burkert Parameters"
+ic.FLASH_readable_ic()
+
+
+
+fx = lambda x : models[bname].DM_profile(x) * 4.0 * np.pi * x * x
+print integrate.quad(fx, 0.0, 300.0 * cgs.pc)[0] / cgs.Msun
+fx = lambda x : models[bname].gas_profile(x) * 4.0 * np.pi * x * x
+
+print integrate.quad(fx, 0.0, 300.0*cgs.pc)[0] / cgs.Msun
