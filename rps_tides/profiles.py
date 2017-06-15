@@ -149,6 +149,60 @@ def gas_profile_function(r, sigma, unit = 1.0):
 
     return _function
 
+def generate_dm_profile(ds, data, rbins = None, com = [0.5,0.5,0.5],
+                            Rvir = 25.0, los = 'z'):
+
+    if rbins is None:
+        rbins = np.arange(0.0, (4.0 * Rvir/10.0), 0.050) * yt.units.kpc
+
+    disk = ds.disk(com, [0,0,1], (4.0 * Rvir/10.0, 'kpc'),
+                                 (0.5 * Rvir/10.0, 'kpc'))
+    sp   = ds.sphere(com, (1.01 * Rvir, 'kpc'))
+
+    if los == 'z':
+        a1 = ('particle_position_x',0)
+        a2 = ('particle_position_y',1)
+    elif los == 'y':
+        a1 = ('particle_position_x',0)
+        a2 = ('particle_position_z',2)
+    elif los == 'x':
+        a1 = ('particle_position_y', 1)
+        a2 = ('particle_position_z', 2)
+
+    r = np.sqrt((disk[a1[0]]-com[a1[1]])**2 + (disk[a2[0]]-com[a2[1]])**2).convert_to_units('kpc').value
+    r_sp = sp['particle_spherical_position_radius'].convert_to_units('kpc').value
+
+    SD = np.zeros(np.size(rbins) - 1 )
+    rc = 0.5 * (rbins[1:] + rbins[:-1])
+
+    mass = disk['particle_mass'].convert_to_units('Msun')
+
+    for i in np.arange(1, len(rbins)):
+
+        select = (r >= rbins[i-1])*(r<rbins[i])
+
+        m    = np.sum(mass[select])
+        area = np.pi*(rbins[i]**2 - rbins[i-1]**2)
+
+        if not hasattr(area, 'value'):
+            area = area * yt.units.kpc**2
+
+        SD[i-1] = ((m / area).convert_to_units('Msun/pc**2')).value
+
+    mass_rbins = np.arange(0.0, (Rvir), 0.05) * yt.units.kpc
+    M  = np.zeros(np.size(mass_rbins) - 1 )
+    m_old = 0.0
+
+    for i in np.arange(1, len(mass_rbins)):
+        M[i-1]  = m_old + np.sum( sp['particle_mass'][ r_sp < mass_rbins[i]].convert_to_units('Msun') ).value
+        m_old   = M[i-1]
+
+
+    return rbins, SD, mass_rbins, M
+
+
+
+
 def generate_gas_profile(ds, data, rbins = None, com = [0.5,0.5,0.5],
                                    Rvir = 25.0, los = 'z'):
     """

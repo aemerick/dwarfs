@@ -5,8 +5,8 @@ import profiles as prof
 from scipy.optimize import brentq
 
 def stripping_radius(star, gas, Pram = None, rho = None, v = None,
-                     rmax  = 40.0 * cgs.kpc,
-                     alpha = 1.0, lu = 1.0): 
+                     rmax  = 40.0 * cgs.kpc, dm = None,
+                     alpha = 1.0, lu = 1.0):
     """
     Given a stellar and gas surface density profile, which
     both must be functions of radius alone, evaluate the stripping
@@ -22,8 +22,12 @@ def stripping_radius(star, gas, Pram = None, rho = None, v = None,
     elif Pram is None:
         Pram = rho * v * v
 
+
     # create the function to root solve
-    func = lambda x : 2.0*np.pi*cgs.G*( star(x) + alpha*gas(x))*gas(x) - Pram
+    if dm is None:
+        dm = lambda x : 0.0
+
+    func = lambda x : 2.0*np.pi*cgs.G*( dm(x) + star(x) + alpha*gas(x))*gas(x) - Pram
 
     # completely stripped
     if func(1.0E-10 * rmax) <= 0.0:
