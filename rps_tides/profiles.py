@@ -1,5 +1,5 @@
 import numpy as np
-import cgs 
+import cgs
 import yt
 from scipy.interpolate import CubicSpline
 
@@ -138,6 +138,7 @@ def gas_profile_function(r, sigma, unit = 1.0):
 
     spline_function = CubicSpline(x,y)
 
+
     def _function(xval):
         if xval > x[-1]:
             return y[-1]*1.0E-10 / unit # effectively zero
@@ -185,7 +186,10 @@ def generate_gas_profile(ds, data, rbins = None, com = [0.5,0.5,0.5],
         dx = disk['dx'] ; dy = disk['dy'] ; dz = disk['dz']
 
         m    = np.sum(mass[select])
-        area = np.pi*(rbins[i]**2 - rbins[i-1]**2) * yt.units.kpc**2
+        area = np.pi*(rbins[i]**2 - rbins[i-1]**2)
+
+        if not hasattr(area, 'value'):
+            area = area * yt.units.kpc**2
 
         SD[i-1] = ((m / area).convert_to_units('Msun/pc**2')).value
 #        N[i-1]  = ((m / area).convert_to_units('cm**(-2)')).value
@@ -204,14 +208,13 @@ def center_of_mass(ds):
     data = ds.all_data()
 
     # DM halo COM as first guess - search within this region
-    com  = ds.quantities.center_of_mass(use_gas = False, use_particles = True)
+    com  = data.quantities.center_of_mass(use_gas = False, use_particles = True)
 
     sp   = ds.sphere(com, (4.0 * ds.parameters['DiskGravityDarkMatterR'],'Mpc'))
 
-    
     for x in [2.0, 1.0]:
         com = sp.quantities.center_of_mass(use_gas = False, use_particles=True)
-        sp  = ds.sphere(com, x * (ds.parameters['DiskGravityDarkMatterR'], 'Mpc'))
+        sp  = ds.sphere(com, (x * ds.parameters['DiskGravityDarkMatterR'], 'Mpc'))
 
     com = sp.quantities.center_of_mass(use_gas=True, use_particles=True)
 
