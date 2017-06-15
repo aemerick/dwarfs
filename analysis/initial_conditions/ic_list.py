@@ -585,6 +585,11 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
                               'b' : 985.0 * cgs.pc, 'potential_type' : "Burkert",
                               'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
+                            'Leo_P_6':
+                             {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
+                              'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b' : 1415.0 * cgs.pc, 'potential_type' : "Burkert",
+                              'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
                             'Leo_P_4':
                              {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
