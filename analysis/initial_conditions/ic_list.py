@@ -173,7 +173,7 @@ class dwarf_ic:
                 self.ic['n_halo'] = n_halo
 
         if not 'R200' in self.ic.keys():
-            R200 = (M200 * (3.0 / (4.0*np.pi))/(200.0 * self.ic['rho_crit']))**(1.0/3.0)
+            R200 = (self.ic['M200'] * (3.0 / (4.0*np.pi))/(200.0 * self.ic['rho_crit']))**(1.0/3.0)
             self.ic['R200'] = R200
 
         if not 'V_max' in self.ic.keys():
@@ -595,6 +595,11 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
                               'b' : 645.75 * cgs.pc, 'potential_type' : "Burkert",
                               'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
+                            'Forbes':
+                             {'T_dwarf' : 6000.0, "M200" : 1.0E10*cgs.Msun, "n_o" : 100.0,
+                              'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b' : 2000.0 * cgs.pc, 'potential_type' : "Burkert",
+                              'M_HI' : 1.0E7*cgs.Msun, 'r_HI' : 8.0*cgs.kpc, 'n_halo':1.0E-4},
                             'LT_n075_v4_nh3':
                              {'T_dwarf' : 6000.0, "M_DM" : 7.3E6 * cgs.Msun,
                               'r_DM'    : 300.0 *cgs.pc,
