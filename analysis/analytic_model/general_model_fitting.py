@@ -13,13 +13,10 @@ import sys
 
 
 simulation_dir = '/home/emerick/Research/dwarfs/flash_runs/leo_T/'
-model_name = "LT_n020_v4_nh4"
-sim_mass   = model_name + '_cont_mass_1-25.dat'
+model_name = "LT_n075_v2_nh4"
+sim_mass   = model_name + '_cont_mass_1-0.dat'
 
-max_fit_time = 325.0 # Myr
-
-outfolder = simulation_dir + model_name + "/"
-
+outfolder = '/home/emerick/Research/dwarfs/flash_runs/leo_T/analytical_model_fits/'
 
 
 initial_conditions = icl.ic_object_dict[model_name.replace('v4','v2')]
@@ -33,7 +30,16 @@ elif 'v2' in model_name:
 
 anal_model.setup_orbit(0.0, initial_conditions.ic['n_halo'], velocity)
 
+t_vals = anal_model.simulation_data['time'] * cgs.Myr
+m_vals = anal_model.simulation_data['mass']
 
+zeros = np.where(m_vals <= 100.0)
+
+if np.size(zeros) >= 1:
+   
+    max_fit_time = np.float(t_vals[zeros[0][0]])
+else:
+    max_fit_time = np.float(t_vals[-1])
 
 # In[6]:
 
@@ -53,20 +59,24 @@ def function_to_fit(x, p0, p1, p2, dwarf, method, t_max = None, exclusive=False)
     rps_beta  = p1
     kh_beta   = p2
     
-    t = np.linspace(0.0, t_max, 1000.0)*cgs.Myr
+    
+    npoints = int(t_max/cgs.Myr)
+    
+    t = np.linspace(0.0, t_max, npoints)
+    
     # evolve to get m as function of time
     m = _mass_function(alpha,rps_beta,kh_beta,t,dwarf,method,exclusive)
     
     # recast as callable function
-    function = interpolate.UnivariateSpline(t, m,k=3)
+    function = interpolate.UnivariateSpline(t, m, k=3)
     
     return function(x)
 
 
 # time to do some manual fitting
-alphas     = np.linspace(3.0,  4.0,   10)
-rps_betas  = np.linspace(0.75,   1.25,  10)
-kh_betas   = np.linspace(3.0, 6.0 ,   10)
+alphas     = np.linspace(0.25,  4.0,   100)
+rps_betas  = np.linspace(0.5,   2.0,  100)
+kh_betas   = np.linspace(1.0,   6.0 , 100)
 
 
 
@@ -75,9 +85,9 @@ nparams = np.size(alphas)*np.size(rps_betas)*np.size(kh_betas)
 shock_error  = np.zeros(nparams)
 shock_params = np.array([[0.,0.,0.]]*nparams)*1.0
 i=0
-f = open(outfolder + 'shock_parameter_study_2.dat','w')
+f = open(outfolder + model_name + '_shock_param.dat','w')
 f.write("#alpha rps_beta kh_beta error\n")
-out_format = "%8.8E %8.8E %8.8E %8.8E\n"
+out_format = "%.4f %.4f %.4f %.14E\n"
 for a in alphas:
     for rps_b in rps_betas:
         for kh_b in kh_betas:
@@ -86,7 +96,7 @@ for a in alphas:
             shock_params[i][0] = a * 1.0
             shock_params[i][1] = rps_b * 1.0
             shock_params[i][2] = kh_b*1.0
-            print('%i of %i - alpha = %.3f , rps_beta = %.3f, kh_beta %.3f, error = %.5e'%(i+1,nparams,a,rps_b,kh_b,shock_error[i]),file=sys.stderr)
+            #print('%i of %i - alpha = %.3f , rps_beta = %.3f, kh_beta %.3f, error = %.10e'%(i+1,nparams,a,rps_b,kh_b,shock_error[i]),file=sys.stderr)
             f.write(out_format%(a,rps_b,kh_b,shock_error[i]))
             i = i + 1
 f.close()
@@ -104,7 +114,7 @@ best_shock_beta_rps  = shock_params[min_err_index][1]
 best_shock_beta_kh = shock_params[min_err_index][2]
 string = "best alpha  = %.4f - best beta = %.4f - best kh = %.4f\n"%(best_shock_alpha,best_shock_beta_rps, best_shock_beta_kh)
 print(string)
-outfile = open(outfolder + 'best_parameters_2.dat','w')
+outfile = open(outfolder + model_name + '_best_shock_param.dat','w')
 outfile.write('shock\n')
 outfile.write(string)
 outfile.close()

@@ -4,6 +4,32 @@ import yt
 import deepdish as dd
 import glob
 
+def make_dm_profiles(dslist = [], outname = 'dm_profile_evolution.h5'):
+
+    all_data_dict = {}
+
+    all_data_dict['t'] = np.zeros(len(dslist))
+    all_data_dict['cumulative_mass'] = [None]*len(dslist)
+    all_data_dict['surface_density'] = [None]*len(dslist)
+
+    i = 0
+    for d in dslist:
+        ds = yt.load(d)
+        com = profiles.center_of_mass(ds)
+        r, sigma, mass_r, M = profiles.generate_dm_profile(ds, ds.all_data(), com=com)
+
+        all_data_dict['r']    = r
+        all_data_dict['r_sp'] = mass_r
+        all_data_dict['t'][i] = ds.current_time.convert_to_units('Myr').value
+        all_data_dict['surface_density'][i] = sigma
+        all_data_dict['cumulative_mass'][i] = M
+
+        i = i + 1
+
+    dd.io.save(outname, all_data_dict)
+
+    return
+
 def make_gas_profiles(dslist = [], outname = 'gas_profile_evolution.h5'):
 
     all_data_dict = {}
@@ -36,4 +62,5 @@ if __name__ == '__main__':
     dsnames = glob.glob('DD????/DD????')
     dsnames = np.sort(dsnames)
 
+    make_dm_profiles(dsnames)
     make_gas_profiles(dsnames)

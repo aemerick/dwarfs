@@ -15,9 +15,9 @@ line_width = 2.5
 
 work_dir = '/home/emerick/Research/dwarfs/flash_runs/leo_T'
 base_name = 'dwarf_fullp_hdf5'
-figure_name = 'LT_adiabatic_mass_evolution.png'
+figure_name = 'LT_adiabatic_mass_grav.png'
 
-mass_file_ext = '_cont_mass_1-0.dat'
+mass_file_ext = 'grav_bound_mass.dat'
 
 # load known subdirectories
 sub_dirs = next(os.walk(work_dir))[1]
@@ -25,7 +25,7 @@ sub_dirs = next(os.walk(work_dir))[1]
 sim_names = [s for s in sub_dirs if 'LT' in s and ((not 'radbox' in s) and (not 'SN' in s) and (not 'sn' in s) and (not 'radtunnel' in s))]
 sim_dirs  = [work_dir + '/' + s for s in sim_names]
 
-mass_files = [s + '/' + name + mass_file_ext for s,name in zip(sim_dirs,sim_names)]
+mass_files = [s + '/' + mass_file_ext for s,name in zip(sim_dirs,sim_names)]
 
 # set up the panel plot
 #

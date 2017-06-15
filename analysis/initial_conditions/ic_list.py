@@ -3,6 +3,8 @@ import cgs as cgs
 import numpy as np
 import copy
 
+from scipy.optimize import minimize
+
 class dwarf_ic:
 
     def __init__(self, name):
@@ -174,6 +176,20 @@ class dwarf_ic:
             R200 = (self.ic['M200'] * (3.0 / (4.0*np.pi))/(200.0 * self.ic['rho_crit']))**(1.0/3.0)
             self.ic['R200'] = R200
 
+        if not 'V_max' in self.ic.keys():
+#            res = minimize( lambda x : -self.circular_velocity(x), self.ic['b'])
+#            self.ic['V_max' ] = -res.fun[0] # result in cm/s
+#            self.ic['R_vmax'] = res.x[0]
+            r = np.logspace(np.log10(0.01 * self.ic['b']), np.log10(10*self.ic['b']), 100000)
+            vc = self.circular_velocity(r)
+            self.ic['V_max'] = np.max(vc)
+            self.ic['R_vmax'] = r[np.argmax(vc)]
+
+        if not 'V_vir' in self.ic.keys():
+            self.ic['V_vir'] = self.circular_velocity(self.ic['R200'])
+        if not 'V_s' in self.ic.keys():
+            self.ic['V_s'] = self.circular_velocity(self.ic['b'])
+
 
 
         if self.ic['potential_type'] == 'Burkert':
@@ -190,8 +206,8 @@ class dwarf_ic:
         self.SF_ic()
 
     def DM_density(self, r, type='NFW'):
-        if 'potential' in self.ic.keys():
-            type = self.ic['potential']
+        if 'potential_type' in self.ic.keys():
+            type = self.ic['potential_type']
 
         if type == 'NFW':
             rho_DM = prof.NFW_DM(r, r_s=self.ic['b'],
@@ -200,19 +216,32 @@ class dwarf_ic:
 
         elif type == 'Burkert' or  type =='Burkert_isothermal':
             rho_DM = prof.burkert_DM(r, r_s=self.ic['b'], M200 = self.ic['M200'], rho_crit=self.ic['rho_crit'])
-     
-    
         self.rho_DM = rho_DM
         return rho_DM
-                                    
+
+    def M_r(self, r, type='NFW'):
+
+        if 'potential_type' in self.ic.keys():
+            type = self.ic['potential_type']
+
+        if type == 'Burkert' or type == 'Burkert_isothermal':
+            M = prof.burkert_mass(r, self.ic['b'], self.ic['M200'], self.ic['rho_crit'])
+
+        elif type == 'NFW':
+            M = prof.NFW_mass(r, self.ic['b'], self.ic['M200'], self.ic['rho_crit'])
+
+        return M
+
+    def circular_velocity(self, r):
+        return np.sqrt(cgs.G * self.M_r(r) / r)
+
     def find_density_profile(self, r, type='NFW_isothermal'):
-               
-        if 'potential' in self.ic.keys():
-            type = self.ic['potential']
+
+        if 'potential_type' in self.ic.keys():
+            type = self.ic['potential_type']
 
         if type == 'NFW_isothermal' or type == 'NFW':
             function = prof.NFW_isothermal_gas
-        
 
             rho = function(r, r_s=self.ic['b'],
                            M200=self.ic['M200'], T=self.ic['T_dwarf'], 
@@ -273,7 +302,6 @@ class dwarf_ic:
            in a fashion that can be copy pasted into
            the flash.par file.
         """
-        
         params = {'T_dwarf' : ['sim_TCloud',self.ic['T_dwarf']],
                   'T_halo'  : ['sim_TAmbient',self.ic['T_halo']],
                   'M200'    : ['sim_M200',self.ic['M200']],
@@ -283,8 +311,7 @@ class dwarf_ic:
                   'mu_halo' : ['sim_mu_halo',self.ic['mu_halo']],
                   'b'       : ['sim_bparam',self.ic['b']],
                   'rho_crit': ['sim_rho_crit',self.ic['rho_crit']]}
-        
- 
+
         output_form = "{:<18} = {:8.8E}"
         if (filename == None):        
             for p in params:
@@ -294,10 +321,8 @@ class dwarf_ic:
             f = open(filename, 'w')
             for p in params:
                 f.write(output_form.format(params[p][0],params[p][1]))
- 
             f.close()
-      
-      
+
     # def SF_ic(sfr=1.0):
     def SF_ic(self):
 
@@ -535,10 +560,40 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                               'potential_type' : 'NFW',
                               'r_HI'    : 300.0 * cgs.pc,
                               'n_o' : 0.20, 'n_halo' : 1.0E-3, 'v_halo' : 400.0E5},
+                            'Hu':
+                             {'T_dwarf' : 6000.0, "M_DM" : 1.0E10 * cgs.Msun,
+                              'r_DM' : 44.0 * cgs.kpc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b' : 4400.0 * cgs.pc, 'potential_type' : "Burkert",
+                              'r_HI' : 1000.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
+                            'Hu-NFW':
+                             {'T_dwarf' : 6000.0, "M_DM" : 1.0E10 * cgs.Msun,
+                              'r_DM' : 44.0 * cgs.kpc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b' : 4400.0 * cgs.pc, 'potential_type' : "NFW",
+                              'r_HI' : 2000.0 * cgs.pc, 'M_HI' : 1.4E8, 'n_halo':1.0E-6},
                             'Leo_P':
                              {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
                               'b' : 369.0 * cgs.pc, 'potential_type' : "Burkert",
+                              'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
+                            'Leo_P_2':
+                             {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
+                              'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b' : 738.0 * cgs.pc, 'potential_type' : "Burkert",
+                              'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
+                            'Leo_P_5':
+                             {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
+                              'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b' : 985.0 * cgs.pc, 'potential_type' : "Burkert",
+                              'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
+                            'Leo_P_4':
+                             {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
+                              'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b' : 900.0 * cgs.pc, 'potential_type' : "Burkert",
+                              'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
+                            'Leo_P_3':
+                             {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
+                              'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                              'b' : 645.75 * cgs.pc, 'potential_type' : "Burkert",
                               'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
                             'Forbes':
                              {'T_dwarf' : 6000.0, "M200" : 1.0E10*cgs.Msun, "n_o" : 100.0,
