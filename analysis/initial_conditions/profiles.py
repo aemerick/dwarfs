@@ -132,7 +132,32 @@ def NFW_DM(r, r_s=None, c=12., M200=1.0E12*cgs.Msun, rho_crit = 9.74E-30,
             density[r > R200] = density[r > R200] * decay_function(r[r>R200],r_decay,R200,r_s,'NFW')
 
     return density
-    
+
+def burkert_mass(r, r_s, M200, rho_crit=9.74E-30):
+
+    R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
+    R = R200/r_s
+
+    rho_ds = 3.0*M200 / (4.0 * np.pi * r_s**3) / (1.5*(0.5*np.log(1+R*R) + np.log(1+R) - \
+                                                          np.arctan(R)))
+    M_ds = 4.0 * np.pi / 3.0 * r_s**3 * rho_ds
+
+    x = r / r_s
+
+    return M_ds * 1.5 * (0.5 * np.log(1.0+x*x) + np.log(1.0+x) - np.arctan(x))
+
+def NFW_mass(r, r_s, M200, rho_crit=9.74E-30):
+    R200 = (3.0*M200/(4.0*np.pi*200.0*rho_crit))**(1.0/3.0)
+    R = R200/r_s
+
+    rho_ds = 3.0 * M200 / (4.0 * np.pi * r_s**3) / (3.0 * (np.log(1.0+R) - R/(1.0+R)))
+
+    M_ds = 4.0 * np.pi / 3.0 * r_s**3 * rho_ds
+
+    x = r / r_s
+
+    return M_ds * 3.0 * (np.log(1.0 + x) - x/(1.0+x))
+
 def burkert_DM(r, r_s, M200, rho_crit=9.74E-30, decay=False, r_decay=None):
     """
     Given the parameters, calculates the Burkert DM density
