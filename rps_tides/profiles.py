@@ -190,15 +190,20 @@ def generate_dm_profile(ds, data, rbins = None, com = [0.5,0.5,0.5],
         SD[i-1] = ((m / area).convert_to_units('Msun/pc**2')).value
 
     mass_rbins = np.arange(0.0, (Rvir), 0.05) * yt.units.kpc
-    M  = np.zeros(np.size(mass_rbins) - 1 )
+    M     = np.zeros(np.size(mass_rbins) - 1 )
+    rho   = np.zeros(np.size(mass_rbins) - 1 )
     m_old = 0.0
 
     for i in np.arange(1, len(mass_rbins)):
-        M[i-1]  = m_old + np.sum( sp['particle_mass'][ r_sp < mass_rbins[i]].convert_to_units('Msun') ).value
-        m_old   = M[i-1]
+        mass_in_bin = np.sum( sp['particle_mass'][(r_sp < mass_rbins[i])*(r_sp>mass_rbins[i-1])].convert_to_units('Msun'))
+        volume_in_bin = 4.0 * np.pi * (mass_rbins[i]**3 - mass_rbins[i-1]**3) / 3.0
+
+        M[i-1]   = m_old + np.sum( sp['particle_mass'][ r_sp < mass_rbins[i]].convert_to_units('Msun') ).value
+        rho[i-1] = (mass_in_bin / volume_in_bin).convert_to_units('Msun/kpc**3').value
+        m_old    = M[i-1]
 
 
-    return rbins, SD, mass_rbins, M
+    return rbins, SD, mass_rbins, M, rho
 
 
 
