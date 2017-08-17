@@ -38,10 +38,10 @@ def convert_to_ascii(datafile, units = 'sim', fmt=None, outfile = None):
     if fmt is None:
         fmt = "%8.8E "
 
+
     if outfile is None:
         outfile = datafile.replace('.tipsy.std','.ascii.dat')
-        outfile = datafile.replace('.tipsy.dpp.std','.ascii.dat')
-
+        outfile = outfile.replace('.tipsy.dpp.std','.ascii.dat')
 
     fmt_string = fmt + fmt + fmt + fmt + fmt + fmt + fmt + "\n"  
 
