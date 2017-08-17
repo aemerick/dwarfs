@@ -8,6 +8,13 @@ from astropy import constants as const
 
 
 class parabolic:
+    """
+    Object to generate a parabolic orbit between a 'victim' and a 
+    'perturber' given the masses of each and the pericenter distance.
+    The orbit is computed beginning some t_o before pericenter passage
+    until t_final, or until t_o after pericenter passage if no t_final
+    is provided.
+    """
 
     def __init__(self, M_v = 2.0E10*u.Msun, M_p = 5.32E10*u.Msun,
                        b   = 20.0*u.kpc, t_o = -1250*u.Myr,
@@ -95,11 +102,11 @@ class parabolic:
         return (opt.brentq(f, -10000, 10000, args=(t,)))
 
 
-    def save_orbit(self):
+    def save_orbit(self, outname = 'parabolic_orbit.txt'):
 
     # compute the orbit in spacings of dt from t_o to t_fi
 
-        f = open('parabolic_orbit.txt', 'w')
+        f = open(outname, 'w')
 
         f.write("# Orbital Properties:\n")
 
