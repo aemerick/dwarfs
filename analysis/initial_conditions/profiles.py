@@ -495,11 +495,15 @@ def solve_NFW_DM(M_DM, r_DM, r_s, rho_crit = 9.74E-30):
 
 def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T, 
               mu=1.31, mu_halo=0.6, T_halo=None, n_halo=None,
-              rho_crit = 9.74E-30, n_o= None):
+              rho_crit = 9.74E-30, n_o= None, rho_s = None):
     """
         Given some dark matter mass and a scaling parameter
         r_s, solve for the dark matter profile parameters
     """
+    if not (rho_s is None):
+        func = lambda x : (rho_s * (np.log(1.0 + r_DM/x) - r_DM / (x + r_DM)) * (4.0 * np.pi * x**3) / M_DM) - 1.0
+        r_s = opt.bisect(func, 50.0 * cgs.pc, 10.0 * cgs.kpc)
+        print 'solved for r_s in NFW', r_s
 
     M200, R200, rho_s, r_s, c = solve_NFW_DM(M_DM, r_DM, r_s, rho_crit=rho_crit)
     # now solve for the central gas density given M_HI at r_HI
