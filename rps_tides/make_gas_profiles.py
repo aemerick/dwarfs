@@ -1,11 +1,13 @@
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib import rc
+from matplotlib import rc, cm
 fsize = 17
 rc('text', usetex=False)
-rc('font', size=fsize)#, ftype=42)
+rc('font', size=fsize) #, ftype=42)
 line_width = 4
 point_size = 30
-viridis    = matplotlib.cm.get_cmap('viridis')
+cmap    = cm.get_cmap('magma')
 
 import profiles
 import numpy as np
@@ -26,6 +28,7 @@ def make_dm_profiles(dslist = [], outname = 'dm_profile_evolution.h5', overwrite
     all_data_dict['t'] = np.zeros(len(dslist))
     all_data_dict['cumulative_mass'] = [None]*len(dslist)
     all_data_dict['surface_density'] = [None]*len(dslist)
+    all_data_dict['density']         = [None]*len(dslist)
 
     i = 0
     for d in dslist:
@@ -85,12 +88,14 @@ def plot_gas_profiles(data):
     z        = data['t'] / max_time
     x        = (data['r'][1:] + data['r'][:-1])*0.5    
 
-    for i in np.arange(np.size(data['t'])):
+    for i in np.arange(np.size(data['t']) - 1, -1, -1):
         ax.plot( x, data['surface_density'][i],
-                     color = viridis(z[i]), lw = line_width)
+                     color = cmap(z[i]), lw = line_width)
 
-    ax.set_ylabel(r'Gas Surface Density (M$_{\odot]$ pc$^{-2}$)')
+    ax.set_ylabel(r'Gas Surface Density (M$_{\odot}$ pc$^{-2}$)')
     ax.set_xlabel(r'Radius (kpc)')
+    ax.semilogy()
+    ax.set_ylim(0.01, 200.0)
 
     fig.set_size_inches(8,8)
     plt.tight_layout()
@@ -110,16 +115,43 @@ def plot_dm_profiles(data):
 
     for i in np.arange(np.size(data['t'])):
         ax.plot( x, data['density'][i],
-                     color = viridis(z[i]), lw = line_width)
+                     color = cmap(z[i]), lw = line_width)
 
-    ax.set_ylabel(r'Dark Matter Density (M$_{\odot]$ kpc$^{-3}$)')
+    ax.set_ylabel(r'Dark Matter Density (M$_{\odot}$ kpc$^{-3}$)')
     ax.set_xlabel(r'Radius (kpc)')
+    ax.semilogy()
 
     fig.set_size_inches(8,8)
     plt.tight_layout()
     plt.minorticks_on()
 
-    fig.savefig('dm_profile_evolution.png')
+    fig.savefig('dm_density_profile_evolution.png')
+    plt.close()
+#
+#
+#
+
+    fig, ax = plt.subplots()
+
+    max_time = data['t'][-1]
+    z        = data['t'] / max_time
+    x        = (data['r_sp'][1:] + data['r_sp'][:-1])*0.5
+
+    for i in np.arange(np.size(data['t'])):
+        ax.plot( x, data['cumulative_mass'][i],
+                     color = cmap(z[i]), lw = line_width)
+
+    ax.set_ylabel(r'Cumulative Mass (M$_{\odot}$)')
+    ax.set_xlabel(r'Radius (kpc)')
+    ax.semilogy()
+    ax.set_ylim(1.0E8, 3E12)
+
+    fig.set_size_inches(8,8)
+    plt.tight_layout()
+    plt.minorticks_on()
+
+    fig.savefig('dm_cumulative_mass_profile_evolution.png')
+
 
     return
 
@@ -129,7 +161,7 @@ if __name__ == '__main__':
     dsnames = np.sort(dsnames)
 
     dm_profiles  = make_dm_profiles(dsnames)
-    gas_profiles = make_gas_profiles(dsnames)
-
-    plot_gas_profiles(gas_profiles)
     plot_dm_profiles(dm_profiles)
+    gas_profiles = make_gas_profiles(dsnames)
+    plot_gas_profiles(gas_profiles)
+
