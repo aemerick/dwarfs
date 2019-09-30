@@ -19,7 +19,7 @@ output_name = 'NFW_burkert_mass.png'
 #output_name   = 'NFW_burkert_contained_mass.png'
 
 # names
-wdir = '/home/emerick/Research/dwarfs/flash_runs/leo_T/'
+wdir = '/home/aemerick/Research/dwarfs/flash_runs/leo_T/'
 filepaths = {'NFW_v2' : 'SN_LT_n150_v2_nh4/0000_cfloor_global/',
              'NFW_v4' : 'SN_LT_n150_v4_nh4/0000_cfloor_global/',
              'Burkert_v2' : 'Burkert_SN_LT_Mn150_v2_nh4/0000_cfloor_global/',

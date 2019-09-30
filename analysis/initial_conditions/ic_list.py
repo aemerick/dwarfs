@@ -107,6 +107,9 @@ class dwarf_ic:
  
             if self.ic['potential_type'] == 'NFW':
 
+                if not ('rho_s' in self.ic.keys()):
+                    self.ic['rho_s'] = None
+                
 
                 if 'M_HI' in self.ic.keys() and 'r_HI' in self.ic.keys():                             
                     n_o = None
@@ -134,7 +137,11 @@ class dwarf_ic:
                                    mu_halo=self.ic['mu_halo'],
                                    T_halo = T_halo, n_halo= n_halo,
                                    rho_crit = self.ic['rho_crit'],
-                                   n_o = n_o)
+                                   n_o = n_o, rho_s = self.ic['rho_s'])
+
+                if (self.ic['b'] is None) or (self.ic['r_s'] is None):
+                    self.ic['b'] = r_s
+                    self.ic['r_s'] = r_s
 
                 self.ic['M200'] = M200
                 self.ic['n_o' ] = n_o
@@ -189,6 +196,9 @@ class dwarf_ic:
             self.ic['V_vir'] = self.circular_velocity(self.ic['R200'])
         if not 'V_s' in self.ic.keys():
             self.ic['V_s'] = self.circular_velocity(self.ic['b'])
+
+        if not 'T_vir' in self.ic.keys():
+            self.ic['T_vir'] = (1.0 / 3.0) * (3.0/2.0) * cgs.mu_ionized * cgs.mp / cgs.kb * self.ic['V_vir']**2
 
 
 
@@ -365,6 +375,36 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                              'T_dwarf': 1.0E4,
                              'b'     :  795.0*cgs.pc,### Walker et. al. 2009 +erratum ###,
                              'potential_type' : 'NFW'},
+                            'SextansNFW' : {
+                               'n_o' : 1.0, 'n_halo' :1.0E-4, 'T_halo' : 2.0E6,
+                               'T_dwarf' : 1.0E4, 'M_DM' : 2.5E7 * cgs.Msun, 'r_DM' : 682.0*cgs.pc,
+                               #'rho_s' : 1.9*cgs.Msun/cgs.pc**3, 
+                               'potential_type' : "NFW", 'r_s' : 800*cgs.pc},
+                            'DracoNFW' : {
+                               'n_o' : 1.0, 'n_halo' :1.0E-4, 'T_halo' : 2.0E6,
+                               'T_dwarf' : 1.0E4, 'M_DM' : 9.4E6 * cgs.Msun, 'r_DM' : 196.0*cgs.pc,
+                               #'rho_s' : 3.0*cgs.Msun/cgs.pc**3, 
+                               'potential_type' : "NFW", 'r_s' : 800*cgs.pc},
+                            'FornaxNFW' : {
+                               'n_o' : 1.0, 'n_halo' :1.0E-4, 'T_halo' : 2.0E6,
+                               'T_dwarf' : 1.0E4, 'M_DM' : 5.3E7 * cgs.Msun, 'r_DM' : 668.0*cgs.pc,
+                               #'rho_s' : 4.2*cgs.Msun/cgs.pc**3, 
+                               'potential_type' : "NFW", 'r_s' : 800.0*cgs.pc},
+                            'CarinaNFW' : {
+                               'n_o' : 1.0, 'n_halo' :1.0E-4, 'T_halo' : 2.0E6,
+                               'T_dwarf' : 1.0E4, 'M_DM' : 6.1E6 * cgs.Msun, 'r_DM' : 241.0*cgs.pc,
+                               #'rho_s' : 1.0*cgs.Msun/cgs.pc**3, 
+                                'potential_type' : "NFW", 'r_s' : 800*cgs.pc},
+                            'LeoTNFW' : {
+                               'n_o' : 1.0, 'n_halo' :1.0E-4, 'T_halo' : 2.0E6,
+                               'T_dwarf' : 1.0E4, 'M_DM' : 5.8E6 * cgs.Msun, 'r_DM' : 178.0*cgs.pc,
+                               #'rho_s' : 2.5 *cgs.Msun/cgs.pc**3, 
+                               'potential_type' : "NFW", 'r_s' : 800*cgs.pc},
+                            'LMCNFW' : {
+                               'n_o' : 1.0, 'n_halo' :1.0E-4, 'T_halo' : 2.0E6,
+                               'T_dwarf' : 1.0E4, 'M_DM' : 1.4E10 * cgs.Msun, 'r_DM' : 8.7*cgs.kpc,
+                               #'rho_s' : 2.5 *cgs.Msun/cgs.pc**3, 
+                               'potential_type' : "NFW", 'r_s' : None, 'rho_s' : 3.4E-24},
                             'SextansMidMed' :  {
                              'n_o' : 1.36 * 0.27, 'mu_dwarf' : 1.297,
                              'mu_halo' : 0.62, 
@@ -575,21 +615,31 @@ known_initial_conditions = {'CarinaMidMed': # see Table 4 in Gatto et. al.
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
                               'b' : 369.0 * cgs.pc, 'potential_type' : "Burkert",
                               'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
-                            'Leo_P_2':
+                            'WLM':
+                             {'T_dwarf' : 1.0E4, "M_DM" : 1.0E10 * cgs.Msun,
+                               'r_DM' : 45 * cgs.kpc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
+                               'b'    : 3 * cgs.kpc, 'potential_type' : 'NFW', 'r_HI' : 6.0*cgs.kpc,
+                               'M_HI' : 7.0E7 * cgs.Msun, 'n_halo' : 1.0E-5},
+                            'Leo_P_2rs':
                              {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
                               'b' : 738.0 * cgs.pc, 'potential_type' : "Burkert",
                               'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
-                            'Leo_P_5':
+                            'Leo_P_30km':
                              {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
                               'b' : 985.0 * cgs.pc, 'potential_type' : "Burkert",
                               'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
-                            'Leo_P_6':
+                            'Leo_P_40km':
                              {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,
                               'b' : 1415.0 * cgs.pc, 'potential_type' : "Burkert",
                               'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo':1.0E-4},
+                            'Leo_P_50km':
+                             {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
+                              'r_DM' : 500.0 * cgs.pc, "mu_halo" : 0.6, "mu_dwarf":1.31,
+                              'b' : 1850.0 * cgs.pc, 'potential_type' : "Burkert",
+                              'r_HI' : 500.0 * cgs.pc, 'M_HI' : 1.4E6, 'n_halo' : 1.0E-4},
                             'Leo_P_4':
                              {'T_dwarf' : 6000.0, "M_DM" : 2.67E7 * cgs.Msun,
                               'r_DM' : 500.0 * cgs.pc, 'mu_halo' : 0.6, 'mu_dwarf' : 1.31,

@@ -124,7 +124,7 @@ def gato_ndensity(r, halo_type='isothermal'):
             type of haly to choose from. Choices are 'isothermal',
             'adiabatic', or 'cooling'. Default: isothermal
     """
-    file_dir = "/home/emerick/Research/dwarfs/analysis/halo/gato/"
+    file_dir = "/home/aemerick/Research/dwarfs/analysis/halo/gato/"
     
     data_file = file_dir + "gato_" + halo_type + ".dat"
     
@@ -203,7 +203,7 @@ def kaufmann(model, field):
     """
     Loads kaufman data.
     """
-    file_dir = "/home/emerick/Research/dwarfs/analysis/halo/jana/"   
+    file_dir = "/home/aemerick/Research/dwarfs/analysis/halo/jana/"   
     data_file = file_dir + 'kaufmann' + model + ".dat"
     
     data = np.genfromtxt(data_file, names=True, skip_header=7)

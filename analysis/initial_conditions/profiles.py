@@ -7,6 +7,62 @@ from ic_generator import find_rm_gatto as find_rm
 from scipy import optimize as opt
 from scipy import integrate
 
+def soliton_density(r, M_h, m_s = 1.5E-22, z = 0):
+    """
+    Yu et. al. 2014
+
+    r   : radius in cm
+    M_h : halo mass in g
+    m_s : particle mass in eV
+    z   : redshift
+
+    """
+    a = 1.0 / (1.0 + z)
+
+    Hubble = 67.0E3  / cgs.Mpc
+
+    A,B = 0.4, 0.1 # constants, at Jerry's suggestion -- very rough
+    m22 = m_s / 1.0E-22
+    M_s = 0.25 * ( (M_h/cgs.Msun) / (m22*4.7E7))**(1.0/3.0) * m22 * 4.7E7
+    R_s = 1.6 / m22 * ( (M_h/cgs.Msun) / 1.0E9)**(-1.0/3.0)
+    M_s = M_s * cgs.Msun # now in g
+    R_s = R_s * cgs.kpc # now in cm
+
+#
+#    old formulae from Jerry
+#
+#    M_s = A * (cgs.h_bar / (cgs.G * m_s)) * (Hubble * cgs.G / M_h)**(1.0/3.0)
+#    R_s = B * (cgs.h_bar**2 / (m_s * cgs.G * M_s))
+#    rho = (105/(32.0*np.pi)) * (M_s / R_s**3) * ( 1.0 / (1.0 - (r/R_s)**2))**4
+#
+    rho = 1.9 * (m22 / 0.1)**(-2) * (R_s/cgs.kpc)**(-4) / (1.0 + 9.1E-2 * (r/R_s)**2)**8
+    rho_avg = 4.0 * np.pi * M_s / R_s**3 / 3.0 / cgs.Msun * cgs.kpc**3 
+    rho = rho * cgs.Msun / cgs.pc**3
+
+    return rho
+
+def soliton_mass(r, M_h):
+    """
+    Yu et. al. 2014 - integrate over the DM profile
+                      this is unfortunate (analytic seemed difficult)
+    """
+
+    integrand =  lambda x : 4.0 * np.pi * x * x * soliton_density(x, M_h)
+
+    result = integrate.quad( integrand, 0.0, r)[0]
+
+    return result
+
+def solve_soliton(r_x, M_x):
+    """
+    Given a (r,M) pair, solves the soliton mass that matches
+    the mass at that radius. 
+    """
+    
+    root_solve = lambda x : soliton_mass(r_x, x) - M_x 
+    
+    return optimize.brentq(root_solve, 1.0E8 * cgs.Msun, 1.0E11 * cgs.Msun)
+
 def NFW_potential(r, r_s = None, c=12., M200 =1.0E12*cgs.Msun,rho_crit = 9.74E-30):
     """
     Evaluates the NFW potential
@@ -495,11 +551,15 @@ def solve_NFW_DM(M_DM, r_DM, r_s, rho_crit = 9.74E-30):
 
 def solve_NFW(M_DM, r_DM, r_s, M_HI, r_HI, T, 
               mu=1.31, mu_halo=0.6, T_halo=None, n_halo=None,
-              rho_crit = 9.74E-30, n_o= None):
+              rho_crit = 9.74E-30, n_o= None, rho_s = None):
     """
         Given some dark matter mass and a scaling parameter
         r_s, solve for the dark matter profile parameters
     """
+    if not (rho_s is None):
+        func = lambda x : (rho_s * (np.log(1.0 + r_DM/x) - r_DM / (x + r_DM)) * (4.0 * np.pi * x**3) / M_DM) - 1.0
+        r_s = opt.bisect(func, 50.0 * cgs.pc, 10.0 * cgs.kpc)
+        print 'solved for r_s in NFW', r_s
 
     M200, R200, rho_s, r_s, c = solve_NFW_DM(M_DM, r_DM, r_s, rho_crit=rho_crit)
     # now solve for the central gas density given M_HI at r_HI
